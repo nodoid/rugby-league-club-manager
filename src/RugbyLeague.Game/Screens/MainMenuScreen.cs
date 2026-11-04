@@ -38,7 +38,7 @@ public sealed class MainMenuScreen : Screen
 
         Ui.Text("RUGBY LEAGUE", new Vector2(left, Page.Y + 120), Theme.Text, TextSize.Title);
         Ui.Text("CLUB MANAGER", new Vector2(left + 4, Page.Y + 204), Theme.Gold, TextSize.Subhead);
-        Ui.Text("NRC  ·  SUPER LEAGUE  ·  THE CHAMPIONSHIP",
+        Ui.Text("NRL  ·  SUPER LEAGUE  ·  THE CHAMPIONSHIP",
             new Vector2(left + 4, Page.Y + 244), Theme.TextMuted, TextSize.Small);
 
         var buttonWidth = 372;

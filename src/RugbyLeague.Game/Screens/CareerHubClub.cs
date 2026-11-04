@@ -27,9 +27,10 @@ public sealed partial class CareerHubScreen
 
         DrawLedger(new Rectangle(left.X, left.Y, left.Width, 190));
         DrawFacilities(new Rectangle(left.X, left.Y + 202, left.Width, left.Height - 202));
-        DrawSponsors(new Rectangle(right.X, right.Y, right.Width, (int)(right.Height * 0.55f)));
-        DrawSponsorOffers(new Rectangle(right.X, right.Y + (int)(right.Height * 0.55f) + 12, right.Width,
-            right.Height - (int)(right.Height * 0.55f) - 12));
+        // Offers get the larger share: three of them can be on the table at once.
+        DrawSponsors(new Rectangle(right.X, right.Y, right.Width, (int)(right.Height * 0.42f)));
+        DrawSponsorOffers(new Rectangle(right.X, right.Y + (int)(right.Height * 0.42f) + 12, right.Width,
+            right.Height - (int)(right.Height * 0.42f) - 12));
     }
 
     private void DrawLedger(Rectangle area)
@@ -153,28 +154,28 @@ public sealed partial class CareerHubScreen
             return;
         }
 
-        var y = area.Y + 40;
+        var y = area.Y + 36;
         foreach (var offer in _career.SponsorOffers.ToList())
         {
-            var rowHeight = 78;
-            if (y + rowHeight > area.Bottom - 10) break;
+            var rowHeight = 68;
+            if (y + rowHeight > area.Bottom - 8) break;
 
-            var row = new Rectangle(area.X + 10, y, area.Width - 20, rowHeight - 8);
+            var row = new Rectangle(area.X + 10, y, area.Width - 20, rowHeight - 6);
             Ui.Fill(row, new Color(20, 36, 46));
 
-            Ui.Text($"{offer.Brand}  ·  {offer.TierLabel}", new Vector2(row.X + 14, row.Y + 6), Theme.Text,
+            Ui.Text($"{offer.Brand}  ·  {offer.TierLabel}", new Vector2(row.X + 14, row.Y + 4), Theme.Text,
                 TextSize.Small);
             Ui.Text($"{Theme.Money(offer.AnnualValue)}/season  ·  {offer.Length} seasons  ·  {Theme.Money(offer.BonusPerWin)} per win",
-                new Vector2(row.X + 14, row.Y + 26), Theme.TextMuted, TextSize.Small);
+                new Vector2(row.X + 14, row.Y + 22), Theme.TextMuted, TextSize.Small);
 
-            if (Ui.Button(new Rectangle(row.X + 14, row.Y + 46, 96, 26), "Accept", ButtonStyle.Primary))
+            if (Ui.Button(new Rectangle(row.X + 14, row.Y + 40, 96, 22), "Accept", ButtonStyle.Primary))
             {
                 var (_, message) = _career.AcceptSponsorOffer(offer.Id);
                 Game.ShowNotice(message);
                 Game.SaveCareer();
             }
 
-            if (Ui.Button(new Rectangle(row.X + 118, row.Y + 46, 84, 26), "Decline", ButtonStyle.Ghost))
+            if (Ui.Button(new Rectangle(row.X + 118, row.Y + 40, 84, 22), "Decline", ButtonStyle.Ghost))
             {
                 _career.DeclineSponsorOffer(offer.Id);
                 Game.ShowNotice("Offer declined.");

@@ -91,6 +91,7 @@ public enum MatchEventKind
     LineBreak,
     SinBin,
     Injury,
+    HeadAssessment,
     Interchange,
     HalfTime,
     FullTime,

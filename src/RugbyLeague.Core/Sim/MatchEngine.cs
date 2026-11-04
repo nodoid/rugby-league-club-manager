@@ -36,6 +36,17 @@ internal sealed class Simulation
     private bool _secondHalf;
     private int _homeSinBinUntil = -1;
     private int _awaySinBinUntil = -1;
+    private readonly List<HeadAssessment> _headAssessments = new();
+
+    /// <summary>A player off the field for the fifteen-minute head injury assessment.</summary>
+    private sealed class HeadAssessment
+    {
+        public required Side Side { get; init; }
+        public required Player Player { get; init; }
+        public Player? Replacement;
+        public double ReturnAt;
+        public bool WillReturn;
+    }
     private readonly List<string> _pendingComments = new();
 
     public Simulation(MatchSetup setup)
@@ -125,6 +136,7 @@ internal sealed class Simulation
         {
             tackle++;
             _clock += 0.42 + _rng.NextDouble() * 0.12;
+            ProcessHeadAssessments();
 
             if (TryInterchange(attack)) { /* continues */ }
             if (TryInterchange(defence)) { /* continues */ }
@@ -532,6 +544,15 @@ internal sealed class Simulation
         if (side.OnField.Count == 0 || _rng.NextDouble() > chance) return;
 
         var player = side.OnField[_rng.Next(side.OnField.Count)];
+
+        // Roughly a third of injuries are head knocks, which go to a HIA rather than ending the
+        // player's match on the spot.
+        if (_rng.NextDouble() < 0.35)
+        {
+            StartHeadAssessment(side, player);
+            return;
+        }
+
         var (type, severity, weeks) = InjuryFactory.Create(_rng);
 
         _result.Injuries.Add(new MatchInjury
@@ -553,6 +574,75 @@ internal sealed class Simulation
         {
             side.Bench.Remove(replacement);
             side.OnField.Add(replacement);
+        }
+    }
+
+    /// <summary>
+    /// The player leaves for up to fifteen minutes of assessment. An interchange covers the spot; if
+    /// he passes he returns, otherwise he is ruled out for the rest of the match.
+    /// </summary>
+    private void StartHeadAssessment(Side side, Player player)
+    {
+        side.OnField.Remove(player);
+        var replacement = side.Bench.FirstOrDefault(p => p.IsAvailable);
+        if (replacement is not null)
+        {
+            side.Bench.Remove(replacement);
+            side.OnField.Add(replacement);
+        }
+
+        _headAssessments.Add(new HeadAssessment
+        {
+            Side = side,
+            Player = player,
+            Replacement = replacement,
+            ReturnAt = _clock + 15,
+            WillReturn = _rng.NextDouble() < 0.55
+        });
+
+        _result.Events.Add(Event(MatchEventKind.HeadAssessment, Minute(),
+            $"{player.ShortName} leaves for a head injury assessment. {(replacement is null ? "No replacement is available" : replacement.ShortName + " comes on")}.",
+            side.Sheet.TeamId));
+    }
+
+    private void ProcessHeadAssessments()
+    {
+        for (var i = _headAssessments.Count - 1; i >= 0; i--)
+        {
+            var assessment = _headAssessments[i];
+            if (_clock < assessment.ReturnAt) continue;
+
+            _headAssessments.RemoveAt(i);
+
+            if (assessment.WillReturn)
+            {
+                if (assessment.Replacement is not null)
+                {
+                    assessment.Side.OnField.Remove(assessment.Replacement);
+                    assessment.Side.Bench.Add(assessment.Replacement);
+                }
+
+                assessment.Side.OnField.Add(assessment.Player);
+                _result.Events.Add(Event(MatchEventKind.HeadAssessment, Minute(),
+                    $"{assessment.Player.ShortName} passes his head injury assessment and returns.",
+                    assessment.Side.Sheet.TeamId));
+                continue;
+            }
+
+            var weeks = 1 + _rng.Next(2);
+            _result.Injuries.Add(new MatchInjury
+            {
+                PlayerId = assessment.Player.Id,
+                PlayerName = assessment.Player.Name,
+                TeamId = assessment.Side.Sheet.TeamId,
+                Type = "Head knock",
+                Severity = InjurySeverity.Minor,
+                WeeksOut = weeks
+            });
+
+            _result.Events.Add(Event(MatchEventKind.HeadAssessment, Minute(),
+                $"{assessment.Player.ShortName} fails his head injury assessment and is ruled out for the rest of the match ({weeks} weeks).",
+                assessment.Side.Sheet.TeamId));
         }
     }
 

@@ -91,8 +91,8 @@ public static class TeamDatabase
             new()
             {
                 Id = NrlId,
-                Name = "National Rugby Championship",
-                ShortName = "NRC",
+                Name = "National Rugby League",
+                ShortName = "NRL",
                 Tier = 1,
                 Country = "Australia",
                 HasPromotionRelegation = false,

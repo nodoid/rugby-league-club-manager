@@ -248,8 +248,10 @@ public sealed partial class ThreeDMatchScreen : Screen
                 new Color(222, 182, 150), 8, 5);
         }
 
-        var ballRadius = 0.32f;
-        mesh.AddSphere(new Vector3(_ball.X, MathF.Max(0.45f, _ball.Y), _ball.Z), ballRadius, new Color(245, 238, 214));
+        // A rugby ball is an oval: about 28 cm long and 18 cm wide, so it is drawn as a prolate
+        // spheroid rather than a football.
+        mesh.AddEllipsoid(new Vector3(_ball.X, MathF.Max(0.35f, _ball.Y), _ball.Z), 0.62f, 0.34f, 0.36f,
+            new Color(245, 238, 214));
 
         return mesh.ToArray();
     }
@@ -294,21 +296,31 @@ public sealed partial class ThreeDMatchScreen : Screen
             Ui.Fill(dot, i < _tackle ? Theme.Gold : new Color(48, 66, 74));
         }
 
-        // Joystick.
-        var stickBase = new Rectangle(_stickArea.Center.X - 96, _stickArea.Center.Y - 96, 192, 192);
-        Ui.Batch.Draw(Theme.MarkerTexture, stickBase, new Color(30, 46, 54) * 0.55f);
-        Ui.Border(stickBase, new Color(120, 150, 150) * 0.5f, 2);
+        DrawWind();
+        DrawDiscipline();
 
-        var knob = new Vector2(_stickCentre.X + _stickValue.X * _stickRadius,
-            _stickCentre.Y + _stickValue.Y * _stickRadius);
-        var knobRect = new Rectangle((int)knob.X - 34, (int)knob.Y - 34, 68, 68);
-        Ui.Batch.Draw(Theme.MarkerTexture, knobRect, new Color(212, 228, 220) * 0.85f);
+        if (_phase == MatchPhase.Conversion)
+        {
+            DrawConversion(width, height);
+        }
+        else
+        {
+            // Joystick.
+            var stickBase = new Rectangle(_stickArea.Center.X - 96, _stickArea.Center.Y - 96, 192, 192);
+            Ui.Batch.Draw(Theme.MarkerTexture, stickBase, new Color(30, 46, 54) * 0.55f);
+            Ui.Border(stickBase, new Color(120, 150, 150) * 0.5f, 2);
 
-        DrawControlButton(_passButton, "PASS", Theme.Accent, Input.AnyPointerIn(_passButton));
-        DrawControlButton(_kickButton, "KICK", Theme.Gold, Input.AnyPointerIn(_kickButton));
-        DrawControlButton(_tackleButton, "TACKLE", Theme.Danger,
-            Input.AnyPointerIn(_tackleButton) || _tacklePressed);
-        DrawControlButton(_sprintButton, "RUN", new Color(70, 96, 108), _sprintHeld > 0);
+            var knob = new Vector2(_stickCentre.X + _stickValue.X * _stickRadius,
+                _stickCentre.Y + _stickValue.Y * _stickRadius);
+            var knobRect = new Rectangle((int)knob.X - 34, (int)knob.Y - 34, 68, 68);
+            Ui.Batch.Draw(Theme.MarkerTexture, knobRect, new Color(212, 228, 220) * 0.85f);
+
+            DrawControlButton(_passButton, "PASS", Theme.Accent, Input.AnyPointerIn(_passButton));
+            DrawControlButton(_kickButton, "KICK", Theme.Gold, Input.AnyPointerIn(_kickButton));
+            DrawControlButton(_tackleButton, "TACKLE", Theme.Danger,
+                Input.AnyPointerIn(_tackleButton) || _tacklePressed);
+            DrawControlButton(_sprintButton, "RUN", new Color(70, 96, 108), _sprintHeld > 0);
+        }
 
         if (_messageTime > 0 && !string.IsNullOrEmpty(_message))
         {
@@ -320,11 +332,118 @@ public sealed partial class ThreeDMatchScreen : Screen
             Ui.TextIn(_message, banner, Theme.Text, TextSize.Subhead, TextAlign.Center);
         }
 
-        Ui.TextIn("Drag the stick to run  ·  PASS  ·  KICK  ·  TACKLE  ·  RUN to sprint",
+        Ui.TextIn(_phase == MatchPhase.Conversion
+                ? "Goal kicking  ·  power and wind decide it"
+                : "Drag the stick to run  ·  PASS  ·  KICK  ·  TACKLE  ·  RUN to sprint",
             new Rectangle((int)(width / 2 - 280), (int)height - 34, 560, 24), Theme.TextDim * 0.9f,
             TextSize.Small, TextAlign.Center);
 
         if (_finished) DrawFullTime();
+    }
+
+    /// <summary>Wind dial in the top-right corner; it drives the conversions and the kicking game.</summary>
+    private void DrawWind()
+    {
+        var card = new Rectangle((int)View.Width - 288, 20, 268, 78);
+        Ui.Card(card, new Color(10, 22, 30) * 0.94f, Theme.PanelBorder);
+
+        Ui.Text("WIND", new Vector2(card.X + 14, card.Y + 10), Theme.TextDim, TextSize.Small);
+        Ui.Text(_setup.Weather.WindLabel, new Vector2(card.X + 14, card.Y + 34), Theme.Text, TextSize.Body);
+
+        var centre = new Vector2(card.Right - 44, card.Y + 46);
+        var angle = MathHelper.ToRadians(_setup.Weather.WindBearing);
+        var direction = new Vector2(MathF.Cos(angle), MathF.Sin(angle));
+
+        if (_setup.Weather.WindSpeed >= 3)
+        {
+            Ui.Batch.Draw(Theme.Pixel, centre, null, Theme.Gold, angle, new Vector2(0f, 0.5f),
+                new Vector2(30f, 4f), SpriteEffects.None, 0f);
+
+            var tip = centre + direction * 30f;
+            foreach (var spread in new[] { 2.5f, -2.5f })
+                Ui.Batch.Draw(Theme.Pixel, tip, null, Theme.Gold, angle + MathF.PI + spread,
+                    new Vector2(0f, 0.5f), new Vector2(11f, 4f), SpriteEffects.None, 0f);
+        }
+        else
+        {
+            Ui.Fill(new Rectangle((int)centre.X - 12, (int)centre.Y - 2, 24, 4), Theme.TextDim);
+        }
+    }
+
+    /// <summary>Sin bin and head injury assessment countdowns, so both are visible on the field.</summary>
+    private string Nickname(bool home) => home ? _setup.Home.Nickname : _setup.Away.Nickname;
+
+    private void DrawDiscipline()
+    {
+        var rows = new List<(string Label, string Time, Color Colour)>();
+
+        foreach (var (actor, until) in _sinBins)
+        {
+            rows.Add(($"{Nickname(actor.IsHome)} · {actor.Player.ShortName}",
+                $"BIN {MathF.Ceiling(until - _clock):0}'", Theme.Gold));
+        }
+
+        foreach (var assessment in _headAssessments)
+        {
+            rows.Add(($"{Nickname(assessment.IsHome)} · {assessment.Player.Player.ShortName}",
+                $"HIA {MathF.Ceiling(assessment.ReturnAt - _clock):0}'", Theme.Loss));
+        }
+
+        if (rows.Count == 0) return;
+
+        var card = new Rectangle((int)View.Width - 288, 106, 268, 30 + rows.Count * 22);
+        Ui.Card(card, new Color(10, 22, 30) * 0.94f, Theme.PanelBorder);
+        Ui.Text("DISCIPLINE", new Vector2(card.X + 14, card.Y + 8), Theme.TextDim, TextSize.Small);
+
+        var y = card.Y + 28;
+        foreach (var (label, time, colour) in rows)
+        {
+            Ui.Text(label, new Vector2(card.X + 14, y), Theme.Text, TextSize.Small);
+            Ui.TextIn(time, new Rectangle(card.Right - 90, y, 76, 20), colour, TextSize.Small, TextAlign.Right);
+            y += 22;
+        }
+    }
+
+    /// <summary>The conversion HUD: placement instructions, power meter and the strike button.</summary>
+    private void DrawConversion(float width, float height)
+    {
+        // Kept to the left so the ball, the kicker and the posts stay in view.
+        var panel = new Rectangle(24, (int)height - 236, 470, 190);
+        Ui.Card(panel, new Color(10, 22, 30) * 0.95f, Theme.PanelBorder);
+
+        var kicker = _kicker?.Player.Name ?? "Kicker";
+        Ui.TextIn($"CONVERSION  ·  {TeamName(_conversionHome)}",
+            new Rectangle(panel.X, panel.Y + 10, panel.Width, 24), Theme.Gold, TextSize.Small, TextAlign.Center);
+        Ui.TextIn($"{kicker}  ·  {ConversionDistance:0} m  ·  wind {_setup.Weather.WindLabel}",
+            new Rectangle(panel.X, panel.Y + 34, panel.Width, 22), Theme.TextMuted, TextSize.Small, TextAlign.Center);
+
+        var meter = new Rectangle(panel.X + 40, panel.Y + 72, panel.Width - 80, 34);
+        Ui.Fill(meter, new Color(7, 16, 21));
+
+        var targetStart = (int)((_conversionRequiredPower - 0.055f) * meter.Width);
+        var targetWidth = (int)(0.11f * meter.Width);
+        Ui.Fill(new Rectangle(meter.X + targetStart, meter.Y, targetWidth, meter.Height), Theme.Accent * 0.35f);
+        Ui.Fill(new Rectangle(meter.X, meter.Y, (int)(Math.Clamp(_power, 0f, 1f) * meter.Width), meter.Height),
+            Theme.Gold * 0.9f);
+        Ui.Border(meter, Theme.PanelBorder, 2);
+
+        Ui.TextIn("POWER", new Rectangle(meter.X, meter.Y - 20, 100, 18), Theme.TextDim, TextSize.Small);
+        Ui.TextIn($"{_power * 100f:0}%", new Rectangle(meter.Right - 100, meter.Y - 20, 100, 18), Theme.TextMuted,
+            TextSize.Small, TextAlign.Right);
+
+        var hint = _conversionStage switch
+        {
+            ConversionStage.Place => "Drag left or right to place the ball, then tap KICK",
+            ConversionStage.Power => "Tap KICK as the needle crosses the green band",
+            ConversionStage.Flight => "The kick is away…",
+            _ => _conversionResult == "GOAL" ? "It's over!" : "Wide of the posts"
+        };
+
+        Ui.TextIn(hint, new Rectangle(panel.X + 12, panel.Y + 122, panel.Width - 24, 24), Theme.Text, TextSize.Small,
+            TextAlign.Center);
+
+        var action = _conversionStage == ConversionStage.Power ? "STRIKE" : "KICK";
+        DrawControlButton(_kickButton, action, Theme.Gold, Input.AnyPointerIn(_kickButton));
     }
 
     private void DrawControlButton(Rectangle rectangle, string label, Color colour, bool pressed)

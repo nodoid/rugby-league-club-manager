@@ -70,8 +70,14 @@ public sealed class Theme
         return luminance > 0.6f ? new Color(16, 24, 28) : Color.White;
     }
 
-    public static string Money(long value) => value < 0 ? $"-${Math.Abs(value):N0}" : $"${value:N0}";
+    /// <summary>Set from the player's competition: £ in England, $ in Australia.</summary>
+    public static string CurrencySymbol { get; set; } = "$";
+
+    public static string Money(long value) =>
+        value < 0 ? $"-{CurrencySymbol}{Math.Abs(value):N0}" : $"{CurrencySymbol}{value:N0}";
 
     public static string ShortMoney(int value) =>
-        value >= 1_000_000 ? $"${value / 1_000_000.0:0.0}M" : value >= 1_000 ? $"${value / 1_000.0:0}K" : $"${value}";
+        value >= 1_000_000 ? $"{CurrencySymbol}{value / 1_000_000.0:0.0}M"
+        : value >= 1_000 ? $"{CurrencySymbol}{value / 1_000.0:0}K"
+        : $"{CurrencySymbol}{value}";
 }

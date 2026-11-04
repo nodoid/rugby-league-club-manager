@@ -55,7 +55,7 @@ The season is a state machine:
 1. **Regular** — 22 league rounds, plus a Challenge Shield round every third week. Your fixture for
    the week is exposed as a `PendingMatch` (league, cup or finals) and your lineup, tactics and
    weather are baked into a `MatchSetup`.
-2. **Finals** — the top 8 (NRC), 6 (Super League) and 4 (Championship) play a seeded knockout for
+2. **Finals** — the top 8 (NRL), 6 (Super League) and 4 (Championship) play a seeded knockout for
    the title.
 3. **Off-season** — contract expiries, retirements, youth intake, promotion/relegation between
    Super League and The Championship, then a new season.

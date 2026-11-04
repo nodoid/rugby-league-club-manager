@@ -105,6 +105,10 @@ public sealed class RugbyGame : Microsoft.Xna.Framework.Game
     protected override void Update(GameTime gameTime)
     {
         View.Update(GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height);
+
+        // Money is shown in the player's own currency, so it changes with promotion and relegation.
+        Graphics.Theme.CurrencySymbol = Career?.CurrencySymbol ?? "$";
+
         Input.Update(gameTime);
         Ui.Update();
 

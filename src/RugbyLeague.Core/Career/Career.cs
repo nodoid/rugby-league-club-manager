@@ -38,6 +38,9 @@ public sealed class Career
 
     [JsonIgnore] public Team PlayerTeam => TeamById(PlayerTeamId);
     [JsonIgnore] public League PlayerLeague => LeagueOf(PlayerTeamId);
+
+    /// <summary>Australian clubs trade in dollars, English clubs in pounds.</summary>
+    [JsonIgnore] public string CurrencySymbol => PlayerLeague.Country == "England" ? "£" : "$";
     [JsonIgnore] public int SeasonWeeks => Math.Max(1, Leagues.Max(l => l.Rounds));
     [JsonIgnore] public int MaxRounds => Leagues.Count == 0 ? 0 : Leagues.Max(l => l.Rounds);
     [JsonIgnore] public long Balance => PlayerTeam.Finances.Balance;
@@ -182,7 +185,23 @@ public sealed class Career
             _ => WeatherKind.Cold
         };
 
-        return new Weather { Kind = kind, Temperature = 6 + rng.Next(0, 18) };
+        var baseWind = kind switch
+        {
+            WeatherKind.Windy => 16,
+            WeatherKind.HeavyRain => 12,
+            WeatherKind.Showers => 9,
+            WeatherKind.Cold => 6,
+            WeatherKind.Clear => 4,
+            _ => 5
+        };
+
+        return new Weather
+        {
+            Kind = kind,
+            Temperature = 6 + rng.Next(0, 18),
+            WindSpeed = baseWind + rng.Next(0, 8),
+            WindBearing = rng.Next(0, 360)
+        };
     }
 
     public int DeterministicSeed(Fixture fixture) =>
@@ -334,7 +353,7 @@ public sealed class Career
             champion.Finances.Balance += cup.PrizeMoney;
             champion.Finances.SeasonRevenue += cup.PrizeMoney;
             AddNews(NewsKind.Trophy, $"{champion.Name} win the {cup.Name}",
-                $"{champion.Name} have won the {cup.Name}, banking ${cup.PrizeMoney:N0} in prize money.",
+                $"{champion.Name} have won the {cup.Name}, banking {ThemeMoney(cup.PrizeMoney)} in prize money.",
                 PlayerTeamId == championId);
         }
     }
@@ -488,7 +507,7 @@ public sealed class Career
         if (PlayerTeam.Finances.Balance < 0)
         {
             AddNews(NewsKind.Finance, "Board concern over club finances",
-                $"The club is ${PlayerTeam.Finances.Balance:N0} in the red. The board expects the situation to be addressed.",
+                $"The club is {ThemeMoney(PlayerTeam.Finances.Balance)} in the red. The board expects the situation to be addressed.",
                 true);
         }
 
@@ -497,7 +516,8 @@ public sealed class Career
 
     private void RefreshSponsorOffers()
     {
-        SponsorOffers.RemoveAll(o => o.ExpiresRound < Round);
+        // Expired offers go, and so does any offer for a tier the club already has a partner in.
+        SponsorOffers.RemoveAll(o => o.ExpiresRound < Round || PlayerTeam.Sponsors.Any(s => s.Tier == o.Tier));
 
         var league = PlayerLeague;
         var rng = new Random(Seed ^ 0x5EA50 ^ (Round * 131) ^ SeasonYear);
@@ -525,11 +545,14 @@ public sealed class Career
             return (false, $"You already have a {offer.TierLabel} partner.");
 
         PlayerTeam.Sponsors.Add(offer.ToDeal());
-        SponsorOffers.Remove(offer);
-        AddNews(NewsKind.Sponsorship, $"{offer.Brand} join as {offer.TierLabel} partner",
-            $"{offer.Brand} have agreed a {offer.Length}-season deal worth ${offer.AnnualValue:N0} a year.", true);
 
-        return (true, $"{offer.Brand} signed for ${offer.AnnualValue:N0} a year.");
+        // The accepted deal leaves the table, and so does any other offer for the same tier: the
+        // club can only have one partner per tier.
+        SponsorOffers.RemoveAll(o => o.Id == offer.Id || o.Tier == offer.Tier);
+        AddNews(NewsKind.Sponsorship, $"{offer.Brand} join as {offer.TierLabel} partner",
+            $"{offer.Brand} have agreed a {offer.Length}-season deal worth {ThemeMoney(offer.AnnualValue)} a year.", true);
+
+        return (true, $"{offer.Brand} signed for {ThemeMoney(offer.AnnualValue)} a year.");
     }
 
     public void DeclineSponsorOffer(Guid offerId) => SponsorOffers.RemoveAll(o => o.Id == offerId);
@@ -555,6 +578,46 @@ public sealed class Career
         return (true, $"Training facility now level {PlayerTeam.TrainingFacility}.");
     }
 
+    /// <summary>Cost of an extra goal-kicking session on the training paddock.</summary>
+    public int KickingSessionCost => 6_000 + PlayerTeam.TrainingFacility * 500;
+
+    /// <summary>
+    /// A dedicated goal-kicking session. The two best kickers at the club work on their goal
+    /// kicking; it is the quickest way to sharpen a kicker between rounds.
+    /// </summary>
+    public (bool Success, string Message) RunKickingSession()
+    {
+        var kickers = PlayerTeam.Squad
+            .Where(p => !p.IsInjured)
+            .OrderByDescending(p => p.Attributes.GoalKicking)
+            .ThenByDescending(p => p.Attributes.Kicking)
+            .Take(2)
+            .ToList();
+
+        if (kickers.Count == 0) return (false, "No fit players are available for a kicking session.");
+        if (PlayerTeam.Finances.Balance < KickingSessionCost)
+            return (false, $"A kicking session costs {ThemeMoney(KickingSessionCost)}.");
+
+        PlayerTeam.Finances.Balance -= KickingSessionCost;
+        PlayerTeam.Finances.SeasonCosts += KickingSessionCost;
+
+        var improved = new List<string>();
+        foreach (var player in kickers)
+        {
+            if (player.Attributes.GoalKicking >= 99) continue;
+            player.Attributes.GoalKicking = Math.Min(99, player.Attributes.GoalKicking + 1);
+            improved.Add(player.ShortName);
+        }
+
+        AddNews(NewsKind.Training, "Goal-kicking session",
+            $"{PlayerTeam.Name} spent the week on goal kicking. {(improved.Count > 0 ? $"{string.Join(" and ", improved)} sharpened up." : "The kickers are already at their best.")}",
+            false);
+
+        return improved.Count == 0
+            ? (true, "Session complete — your kickers are already at their best.")
+            : (true, $"Kicking session complete: {string.Join(", ", improved)} improved.");
+    }
+
     public (bool Success, string Message) UpgradeYouthAcademy()
     {
         if (PlayerTeam.YouthAcademy >= 10) return (false, "The youth academy is already world class.");
@@ -570,7 +633,7 @@ public sealed class Career
         return (true, $"Youth academy now level {PlayerTeam.YouthAcademy}.");
     }
 
-    private static string ThemeMoney(long value) => $"${value:N0}";
+    private string ThemeMoney(long value) => $"{CurrencySymbol}{value:N0}";
 
     // ---------------------------------------------------------------- transfers
 
@@ -1083,7 +1146,16 @@ public sealed class Career
 
         SponsorOffers.Clear();
         for (var i = 0; i < 2; i++)
-            SponsorOffers.Add(SponsorshipEngine.CreateOffer(PlayerTeam, PlayerLeague, rng, 0));
+        {
+            // Never offer a tier the club already has a partner in.
+            var available = Enum.GetValues<SponsorTier>()
+                .Where(t => PlayerTeam.Sponsors.All(s => s.Tier != t) && SponsorOffers.All(o => o.Tier != t))
+                .ToList();
+
+            if (available.Count == 0) break;
+            SponsorOffers.Add(SponsorshipEngine.CreateOffer(PlayerTeam, PlayerLeague, rng, 0,
+                available[rng.Next(available.Count)]));
+        }
 
         AddNews(NewsKind.General, $"Season {SeasonYear} kicks off",
             $"{PlayerTeam.Name} begin the new campaign in the {PlayerLeague.Name}.", true);
@@ -1178,7 +1250,11 @@ public sealed class Career
         career.Transfers.WindowClosesRound = 8;
         career.RefreshTransferListings();
 
-        career.SponsorOffers.Add(SponsorshipEngine.CreateOffer(career.PlayerTeam, career.PlayerLeague, rng, 0));
+        var openingTier = Enum.GetValues<SponsorTier>()
+            .FirstOrDefault(t => career.PlayerTeam.Sponsors.All(s => s.Tier != t));
+        if (career.PlayerTeam.Sponsors.All(s => s.Tier != openingTier))
+            career.SponsorOffers.Add(
+                SponsorshipEngine.CreateOffer(career.PlayerTeam, career.PlayerLeague, rng, 0, openingTier));
 
         career.AddNews(NewsKind.General, $"Welcome to {career.PlayerTeam.Name}",
             $"{career.ManagerName} takes charge at {career.PlayerTeam.Name} ahead of the {seasonYear} season. " +

@@ -52,7 +52,7 @@ public sealed class MatchdayScreen : Screen
         var playerIsHome = home.TeamId == _career.PlayerTeamId;
 
         Ui.Text(pending.CompetitionName, new Vector2(area.X + 136, area.Y + 4), Theme.Gold, TextSize.Subhead);
-        Ui.Text($"Round {pending.Fixture.Round + 1}  ·  {_setup.Weather.Label}  ·  {_setup.Weather.Temperature}°C",
+        Ui.Text($"Round {pending.Fixture.Round + 1}  ·  {_setup.Weather.Label}  ·  {_setup.Weather.Temperature}°C  ·  wind {_setup.Weather.WindLabel}",
             new Vector2(area.X + 136, area.Y + 38), Theme.TextMuted, TextSize.Small);
 
         var card = new Rectangle(area.X, area.Y + 66, area.Width, area.Height - 66);

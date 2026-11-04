@@ -133,4 +133,38 @@ public sealed class MeshBuilder
             }
         }
     }
+
+    /// <summary>
+    /// A squashed sphere. Rugby balls are prolate spheroids, so the long axis is stretched and the
+    /// other two axes pinched in.
+    /// </summary>
+    public void AddEllipsoid(Vector3 center, float length, float width, float height, Color color,
+        int segments = 12, int rings = 8)
+    {
+        var scale = new Vector3(length * 0.5f, height * 0.5f, width * 0.5f);
+
+        for (var ring = 0; ring < rings; ring++)
+        {
+            var phiA = MathF.PI * ring / rings;
+            var phiB = MathF.PI * (ring + 1) / rings;
+
+            for (var segment = 0; segment < segments; segment++)
+            {
+                var thetaA = MathHelper.TwoPi * segment / segments;
+                var thetaB = MathHelper.TwoPi * (segment + 1) / segments;
+
+                Vector3 Point(float phi, float theta) => center + new Vector3(
+                    MathF.Sin(phi) * MathF.Cos(theta) * scale.X,
+                    MathF.Cos(phi) * scale.Y,
+                    MathF.Sin(phi) * MathF.Sin(theta) * scale.Z);
+
+                var a = Point(phiA, thetaA);
+                var b = Point(phiA, thetaB);
+                var c = Point(phiB, thetaB);
+                var d = Point(phiB, thetaA);
+                var shade = Color.Lerp(color, Color.White, 0.1f + 0.14f * MathF.Cos(phiA));
+                AddQuad(a, b, c, d, shade);
+            }
+        }
+    }
 }

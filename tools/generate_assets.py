@@ -180,7 +180,7 @@ def splash_image(width=1920, height=1080) -> Image.Image:
     draw.text((width / 2, height * 0.60), "RUGBY LEAGUE", font=font(int(height * 0.115)), fill=WHITE, anchor="mm")
     draw.text((width / 2, height * 0.70), "CLUB MANAGER  ·  SIMULATION & 3D",
               font=regular_font(int(height * 0.037)), fill=GOLD, anchor="mm")
-    draw.text((width / 2, height * 0.80), "NRC  ·  SUPER LEAGUE  ·  THE CHAMPIONSHIP",
+    draw.text((width / 2, height * 0.80), "NRL  ·  SUPER LEAGUE  ·  THE CHAMPIONSHIP",
               font=regular_font(int(height * 0.028)), fill=(170, 190, 178, 255), anchor="mm")
     return image
 

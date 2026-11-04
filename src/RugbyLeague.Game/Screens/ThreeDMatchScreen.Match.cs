@@ -1,6 +1,7 @@
 using Microsoft.Xna.Framework;
 using RugbyLeague.Core.Careers;
 using RugbyLeague.Core.Model;
+using RugbyLeague.Core.Sim;
 
 namespace RugbyLeague.Game.Screens;
 
@@ -23,6 +24,20 @@ public sealed partial class ThreeDMatchScreen
     private readonly Dictionary<Guid, PlayerMatchStats> _playerStats = new();
     private readonly List<MatchEvent> _events = new();
     private readonly List<MatchInjury> _injuries = new();
+    private readonly List<(Actor Actor, float Until)> _sinBins = new();
+    private readonly List<HeadAssessment> _headAssessments = new();
+    private readonly Dictionary<bool, List<Player>> _bench = new() { [true] = new(), [false] = new() };
+    private int _interchangesUsed;
+
+    /// <summary>A player off the field for the fifteen-minute head injury assessment.</summary>
+    private sealed class HeadAssessment
+    {
+        public Actor Player = null!;
+        public bool IsHome;
+        public float ReturnAt;
+        public bool WillReturn;
+        public Actor? Replacement;
+    }
     private readonly MatchTeamStats _homeStats = new();
     private readonly MatchTeamStats _awayStats = new();
     private readonly Random _rng = new(4242);
@@ -56,6 +71,41 @@ public sealed partial class ThreeDMatchScreen
     private Actor? _carrier;
     private Actor? _controlled;
     private Vector3 _ball = new(50, 0.4f, 34);
+
+    // Conversion attempts run as their own phase so the clock, the controls and the camera can all
+    // switch to the kick without the open-play simulation interfering.
+    private enum MatchPhase
+    {
+        Live,
+        Conversion
+    }
+
+    private enum ConversionStage
+    {
+        Place,
+        Power,
+        Flight,
+        Result
+    }
+
+    private MatchPhase _phase = MatchPhase.Live;
+    private ConversionStage _conversionStage;
+    private bool _conversionHome;
+    private bool _conversionIsPlayer;
+    private Actor? _kicker;
+    private float _conversionZ = 34f;
+    private float _conversionBack = 12f;
+    private float _power;
+    private float _powerDirection = 1f;
+    private float _conversionTimer;
+    private float _conversionRequiredPower;
+    private float _conversionMiss;
+    private bool _conversionScored;
+    private float _conversionFlight;
+    private float _conversionFlightDuration = 1.15f;
+    private Vector3 _conversionFrom;
+    private Vector3 _conversionTo;
+    private string _conversionResult = "";
 
     private bool _flight;
     private bool _flightIsKick;
@@ -94,6 +144,9 @@ public sealed partial class ThreeDMatchScreen
         AddActors(_setup.Home, true);
         AddActors(_setup.Away, false);
 
+        _bench[true].AddRange(_setup.Home.Bench);
+        _bench[false].AddRange(_setup.Away.Bench);
+
         foreach (var actor in _actors)
             _playerStats[actor.Player.Id] = new PlayerMatchStats
             {
@@ -124,6 +177,166 @@ public sealed partial class ThreeDMatchScreen
                 Position = new Vector3(50, 0, 34)
             });
         }
+    }
+
+    // ---------------------------------------------------------------- discipline and interchanges
+
+    /// <summary>Checks the sin-bin clock and the head injury assessments every frame.</summary>
+    private void UpdateDiscipline()
+    {
+        for (var i = _sinBins.Count - 1; i >= 0; i--)
+        {
+            var (actor, until) = _sinBins[i];
+            if (_clock < until) continue;
+
+            _sinBins.RemoveAt(i);
+            ReturnToField(actor);
+            AddEvent(MatchEventKind.SinBin, $"{actor.Player.Name} returns from the sin bin.", TeamId(actor.IsHome));
+            ShowMessage($"{actor.Player.ShortName} back from the sin bin", 2f);
+        }
+
+        for (var i = _headAssessments.Count - 1; i >= 0; i--)
+        {
+            var assessment = _headAssessments[i];
+            if (_clock < assessment.ReturnAt) continue;
+
+            _headAssessments.RemoveAt(i);
+            var player = assessment.Player;
+
+            if (assessment.WillReturn)
+            {
+                if (assessment.Replacement is not null) TakeOffField(assessment.Replacement);
+                ReturnToField(player);
+                AddEvent(MatchEventKind.HeadAssessment, $"{player.Player.Name} passes his head injury assessment and returns.",
+                    TeamId(assessment.IsHome));
+                ShowMessage($"{player.Player.ShortName} passes the HIA — back on", 2.4f);
+            }
+            else
+            {
+                var weeks = 1 + _rng.Next(2);
+                _injuries.Add(new MatchInjury
+                {
+                    PlayerId = player.Player.Id,
+                    PlayerName = player.Player.Name,
+                    TeamId = TeamId(assessment.IsHome),
+                    Type = "Head knock",
+                    Severity = InjurySeverity.Minor,
+                    WeeksOut = weeks
+                });
+
+                AddEvent(MatchEventKind.HeadAssessment,
+                    $"{player.Player.Name} fails his head injury assessment and is ruled out for the rest of the match ({weeks} weeks).",
+                    TeamId(assessment.IsHome));
+                ShowMessage($"{player.Player.ShortName} fails the HIA — out of the match", 2.6f);
+            }
+        }
+    }
+
+    private void TakeOffField(Actor actor)
+    {
+        _actors.Remove(actor);
+        if (_carrier == actor) _carrier = null;
+        if (_controlled == actor) _controlled = null;
+        if (_kicker == actor) _kicker = null;
+    }
+
+    private void ReturnToField(Actor actor)
+    {
+        actor.Position = new Vector3(Math.Clamp(_ball.X, 8, 92), 0, 34);
+        actor.TackleCooldown = 0;
+        if (!_actors.Contains(actor)) _actors.Add(actor);
+    }
+
+    /// <summary>Brings the first available bench player on in place of a player leaving the field.</summary>
+    private Actor? SendOnBenchPlayer(bool home)
+    {
+        var bench = _bench[home];
+        var next = bench.FirstOrDefault();
+        if (next is null) return null;
+
+        bench.Remove(next);
+        _interchangesUsed++;
+
+        var actor = new Actor
+        {
+            Player = next,
+            IsHome = home,
+            Shirt = next.ShirtNumber,
+            Position = new Vector3(Math.Clamp(_ball.X, 8, 92), 0, 34)
+        };
+
+        _actors.Add(actor);
+        _playerStats[next.Id] = new PlayerMatchStats
+        {
+            PlayerId = next.Id,
+            TeamId = TeamId(home),
+            Name = next.Name
+        };
+
+        return actor;
+    }
+
+    /// <summary>Ten minutes in the bin, and the team plays a man short until the clock runs out.</summary>
+    private void SinBin(Actor offender)
+    {
+        _sinBins.Add((offender, _clock + 10f));
+        TakeOffField(offender);
+
+        AddEvent(MatchEventKind.SinBin,
+            $"{offender.Player.Name} is sin-binned for ten minutes. {TeamName(offender.IsHome)} down to twelve men.",
+            TeamId(offender.IsHome));
+        ShowMessage($"{offender.Player.ShortName} — sin bin (10 minutes)", 2.6f);
+    }
+
+    /// <summary>
+    /// A head knock sends the player off for fifteen minutes of assessment. An interchange covers the
+    /// position, then the player either passes and returns or is ruled out for the rest of the match.
+    /// </summary>
+    private void StartHeadAssessment(Actor player)
+    {
+        var home = player.IsHome;
+        TakeOffField(player);
+
+        var replacement = SendOnBenchPlayer(home);
+        var willReturn = _rng.NextDouble() < 0.55;
+
+        _headAssessments.Add(new HeadAssessment
+        {
+            Player = player,
+            IsHome = home,
+            ReturnAt = _clock + 15f,
+            WillReturn = willReturn,
+            Replacement = replacement
+        });
+
+        AddEvent(MatchEventKind.HeadAssessment,
+            $"{player.Player.Name} leaves for a head injury assessment; {(replacement?.Player.Name ?? "the bench")} comes on.",
+            TeamId(home));
+        ShowMessage($"{player.Player.ShortName} — HIA (15 minutes)", 2.8f);
+    }
+
+    private void InjurePlayer(Actor player)
+    {
+        var (type, severity, weeks) = InjuryFactory.Create(_rng);
+        var home = player.IsHome;
+
+        _injuries.Add(new MatchInjury
+        {
+            PlayerId = player.Player.Id,
+            PlayerName = player.Player.Name,
+            TeamId = TeamId(home),
+            Type = type,
+            Severity = severity,
+            WeeksOut = weeks
+        });
+
+        TakeOffField(player);
+        var replacement = SendOnBenchPlayer(home);
+
+        AddEvent(MatchEventKind.Injury,
+            $"{player.Player.Name} leaves the field with {type.ToLowerInvariant()}; {(replacement?.Player.Name ?? "the bench")} comes on.",
+            TeamId(home));
+        ShowMessage($"{player.Player.ShortName} off injured — {type.ToLowerInvariant()}", 2.4f);
     }
 
     private void LayoutControls()
@@ -191,6 +404,19 @@ public sealed partial class ThreeDMatchScreen
             return;
         }
 
+        // The match clock runs on the wall clock, so the small stoppages (tackles and restarts) can
+        // never hold the match up as they used to. Conversions and the half-time break stop it, the
+        // way they stop a real match.
+        if (_phase != MatchPhase.Conversion && !_halfTimeBreak) _clock += dt * 0.9f;
+        UpdateDiscipline();
+
+        if (_phase == MatchPhase.Conversion)
+        {
+            UpdateConversion(dt);
+            UpdateCamera(dt);
+            return;
+        }
+
         if (_messageTime > 0) _messageTime -= dt;
 
         UpdateStick();
@@ -216,8 +442,6 @@ public sealed partial class ThreeDMatchScreen
             UpdateCamera(dt);
             return;
         }
-
-        _clock += dt * 0.9f;
 
         if (_homePossession) _homePossessionTime += dt;
         else _awayPossessionTime += dt;
@@ -362,7 +586,10 @@ public sealed partial class ThreeDMatchScreen
             {
                 var chase = DefendersChasing(actor);
                 var target = chase ? ball : DefenceTarget(actor, ball);
-                MoveTowards(actor, target, ActorSpeed(actor) * (chase ? 1f : 0.8f), dt);
+
+                // Chasers are quicker than a ball carrier, otherwise a single missed tackle turns
+                // every set into a walk-in try and the score runs away.
+                MoveTowards(actor, target, ActorSpeed(actor) * (chase ? 1.18f : 0.82f), dt);
             }
         }
 
@@ -412,7 +639,7 @@ public sealed partial class ThreeDMatchScreen
         var tryLine = TryLine(actor.IsHome);
         var direction = AttackDirection(actor.IsHome);
         var lane = 34f + MathF.Sin(_clock * 0.4f + actor.Shirt) * 9f;
-        var target = new Vector3(tryLine - direction * 1.5f, 0, lane);
+        var target = new Vector3(tryLine + direction * 0.5f, 0, lane);
 
         var nearest = _actors
             .Where(a => a.IsHome != actor.IsHome)
@@ -455,7 +682,7 @@ public sealed partial class ThreeDMatchScreen
             if (defender.TackleCooldown > 0) continue;
 
             var distance = Vector3.Distance(defender.Position, _carrier.Position);
-            if (distance > 2.3f) continue;
+            if (distance > 2.7f) continue;
 
             defender.TackleCooldown = 0.9f;
             AttemptTackle(defender);
@@ -483,7 +710,7 @@ public sealed partial class ThreeDMatchScreen
             stat.MissedTackles++;
             PlayerStat(defender).MissedTackles++;
             var direction = AttackDirection(carrier.IsHome);
-            carrier.Position.X += direction * 4f;
+            carrier.Position.X += direction * 2f;
             ClampToField(carrier);
             ShowMessage($"{defender.Player.ShortName} slips off the tackle", 1.2f);
             return;
@@ -493,42 +720,58 @@ public sealed partial class ThreeDMatchScreen
         var carrierStats = carrier.IsHome ? _homeStats : _awayStats;
         carrierStats.Metres += 2;
 
-        var penalty = _rng.NextDouble() < 0.045;
-        if (penalty)
+        // Penalties are the main source of restarts and sin bins. A defending player is binned for
+        // ten minutes about once in every three or four penalties.
+        if (_rng.NextDouble() < 0.045)
         {
             var offending = defender.IsHome ? _homeStats : _awayStats;
             offending.Penalties++;
             _tackle = 0;
-            ShowMessage("Penalty — set restart", 1.6f);
-            AddEvent(MatchEventKind.PenalityConceded, $"Penalty to {TeamName(carrier.IsHome)}. Set restart.", TeamId(carrier.IsHome));
+
+            var bin = _rng.NextDouble() < 0.2 && _sinBins.Count < 3;
+            AddEvent(MatchEventKind.PenalityConceded,
+                $"Penalty to {TeamName(carrier.IsHome)} — {defender.Player.Name} {Offence()}. Set restart.",
+                TeamId(carrier.IsHome));
+
+            if (bin)
+            {
+                SinBin(defender);
+            }
+            else
+            {
+                ShowMessage($"PENALTY {TeamName(carrier.IsHome)} — set restart", 1.8f);
+            }
         }
 
-        if (_rng.NextDouble() < 0.012 && _injuries.Count < 3)
+        if (_injuries.Count < 4 && _rng.NextDouble() < 0.016)
         {
-            var (type, severity, weeks) = InjuryFactory.Create(_rng);
-            _injuries.Add(new MatchInjury
-            {
-                PlayerId = carrier.Player.Id,
-                PlayerName = carrier.Player.Name,
-                TeamId = carrier.IsHome ? TeamId(true) : TeamId(false),
-                Type = type,
-                Severity = severity,
-                WeeksOut = weeks
-            });
+            // A head knock goes to a fifteen-minute assessment; anything else is a straight injury.
+            if (_rng.NextDouble() < 0.4) StartHeadAssessment(carrier);
+            else InjurePlayer(carrier);
         }
 
         if (_tackle >= 6)
         {
             ShowMessage("Six again — handover", 1.8f);
-            Turnover(_carrier.Position);
+            Turnover(carrier.Position);
         }
         else
         {
-            _ball = new Vector3(_carrier.Position.X, 0.4f, _carrier.Position.Z);
+            _ball = new Vector3(carrier.Position.X, 0.4f, carrier.Position.Z);
             _pause = 0.45f;
             SelectNextCarrier();
         }
     }
+
+    private string Offence() => _rng.Next(6) switch
+    {
+        0 => "goes high",
+        1 => "holds down in the ruck",
+        2 => "is offside",
+        3 => "flops on the tackled player",
+        4 => "crowds the play-the-ball",
+        _ => "is not square at marker"
+    };
 
     private void SelectNextCarrier()
     {
@@ -639,7 +882,8 @@ public sealed partial class ThreeDMatchScreen
         var direction = AttackDirection(from.IsHome);
         var distance = 32f + (float)_rng.NextDouble() * 22f;
         var landingX = Math.Clamp(from.Position.X + direction * distance, 6, 94);
-        var landingZ = Math.Clamp(from.Position.Z + (float)(_rng.NextDouble() * 18 - 9), 4, 64);
+        var windPush = _setup.Weather.WindAcross * 0.2f;
+        var landingZ = Math.Clamp(from.Position.Z + (float)(_rng.NextDouble() * 18 - 9) + windPush, 4, 64);
 
         _flight = true;
         _flightIsKick = true;
@@ -710,35 +954,215 @@ public sealed partial class ThreeDMatchScreen
 
         PlayerStat(scorer).Tries++;
         AddEvent(MatchEventKind.Try, $"TRY! {scorer.Player.Name} scores for {TeamName(home)}.", TeamId(home));
+        ShowMessage($"TRY! {scorer.Player.ShortName} scores for {TeamName(home)}", 2.2f);
 
-        // Conversion.
-        var kicker = BestKicker(home);
-        var chance = Math.Clamp(0.48 + kicker.Player.Attributes.GoalKicking / 250.0, 0.35, 0.95);
-        if (MathF.Abs(scorer.Position.Z - 34) > 16) chance -= 0.12;
-
-        if (_rng.NextDouble() < chance)
-        {
-            if (home) _homeScore += 2;
-            else _awayScore += 2;
-
-            PlayerStat(kicker).Goals++;
-            AddEvent(MatchEventKind.Conversion, $"{kicker.Player.ShortName} converts.", TeamId(home));
-            ShowMessage($"TRY! {scorer.Player.ShortName} scores and converts", 2.4f);
-        }
-        else
-        {
-            ShowMessage($"TRY! {scorer.Player.ShortName} scores — conversion missed", 2.4f);
-        }
-
-        _pause = 2.2f;
-
+        // A try in golden point settles the match outright; there is no conversion.
         if (_goldenPoint)
         {
             FinishMatch();
             return;
         }
 
-        Kickoff(!home);
+        BeginConversion(scorer);
+    }
+
+    // ---------------------------------------------------------------- conversions
+
+    private float ConversionDistance =>
+        MathF.Sqrt(_conversionBack * _conversionBack + (_conversionZ - 34f) * (_conversionZ - 34f));
+
+    private float ConversionLine => TryLine(_conversionHome);
+
+    private void BeginConversion(Actor scorer)
+    {
+        _phase = MatchPhase.Conversion;
+        _conversionHome = scorer.IsHome;
+        _conversionIsPlayer = scorer.IsHome == _playerIsHome;
+        _kicker = BestKicker(_conversionHome);
+        _conversionZ = Math.Clamp(scorer.Position.Z, 14f, 54f);
+        _conversionBack = 12f;
+        _conversionTimer = 0f;
+        _conversionFlight = 0f;
+        _conversionResult = "";
+        _power = 0f;
+        _powerDirection = 1f;
+        _conversionStage = _conversionIsPlayer ? ConversionStage.Place : ConversionStage.Power;
+
+        _carrier = null;
+        _flight = false;
+        _tackle = 0;
+        _pause = 0f;
+
+        PlaceConversionBall();
+
+        ShowMessage(_conversionIsPlayer
+            ? "Conversion — drag to place the ball, then KICK"
+            : $"{TeamName(_conversionHome)} line up the conversion", 2.6f);
+    }
+
+    private void PlaceConversionBall()
+    {
+        var direction = AttackDirection(_conversionHome);
+        _ball = new Vector3(ConversionLine - direction * _conversionBack, 0.4f, _conversionZ);
+        _conversionRequiredPower = GoalKicking.RequiredPower(ConversionDistance);
+
+        if (_kicker is not null)
+        {
+            // Stand the kicker beside the ball rather than over it, so the oval ball stays in view.
+            _kicker.Position = new Vector3(_ball.X - direction * 0.5f, 0, _conversionZ + 1.2f);
+            _kicker.IsControlled = false;
+        }
+    }
+
+    private void UpdateConversion(float dt)
+    {
+        _conversionTimer += dt;
+
+        switch (_conversionStage)
+        {
+            case ConversionStage.Place:
+                UpdatePlacement();
+                break;
+            case ConversionStage.Power:
+                UpdatePowerMeter(dt);
+                break;
+            case ConversionStage.Flight:
+                UpdateConversionFlight(dt);
+                break;
+            case ConversionStage.Result:
+                if (_conversionTimer >= 1.5f) EndConversion();
+                break;
+        }
+    }
+
+    private void UpdatePlacement()
+    {
+        var kickPressed = Input.AnyPointerPressedIn(_kickButton) ||
+                          Input.IsNewKeyPress(Microsoft.Xna.Framework.Input.Keys.Space) ||
+                          Input.IsNewKeyPress(Microsoft.Xna.Framework.Input.Keys.Enter);
+
+        if (Input.PointerDown && MathF.Abs(Input.PointerDelta.X) > 0.5f)
+        {
+            // Dragging across the pitch walks the ball back from, or nearer to, the posts.
+            var direction = AttackDirection(_conversionHome);
+            _conversionBack = Math.Clamp(_conversionBack - Input.PointerDelta.X * direction * 0.12f, 6f, 30f);
+            PlaceConversionBall();
+        }
+
+        if (kickPressed)
+        {
+            _conversionStage = ConversionStage.Power;
+            _conversionTimer = 0f;
+            _power = 0f;
+            _powerDirection = 1f;
+            ShowMessage("Tap KICK to strike", 1.6f);
+        }
+    }
+
+    private void UpdatePowerMeter(float dt)
+    {
+        _power += _powerDirection * dt * 0.9f;
+        if (_power >= 1f)
+        {
+            _power = 1f;
+            _powerDirection = -1f;
+        }
+        else if (_power <= 0f)
+        {
+            _power = 0f;
+            _powerDirection = 1f;
+        }
+
+        if (_conversionIsPlayer)
+        {
+            var strike = Input.AnyPointerPressedIn(_kickButton) ||
+                         Input.IsNewKeyPress(Microsoft.Xna.Framework.Input.Keys.Space) ||
+                         Input.IsNewKeyPress(Microsoft.Xna.Framework.Input.Keys.Enter);
+
+            if (strike) StrikeConversion(_power);
+            return;
+        }
+
+        // The opposition kicker waits for the needle to reach the power the kick needs.
+        if (_conversionTimer > 0.6f && MathF.Abs(_power - _conversionRequiredPower) < 0.05f)
+            StrikeConversion(_power + (float)(_rng.NextDouble() - 0.5) * 0.06f);
+    }
+
+    private void StrikeConversion(float power)
+    {
+        var goalKicking = _kicker?.Player.Attributes.GoalKicking ?? 55;
+        var kicking = _kicker?.Player.Attributes.Kicking ?? 55;
+
+        var outcome = GoalKicking.Evaluate(new GoalKicking.Attempt(
+            ConversionDistance,
+            power,
+            _setup.Weather.WindAcross,
+            goalKicking,
+            kicking,
+            (float)(_rng.NextDouble() * 2 - 1)));
+
+        _conversionScored = outcome.Scored;
+        _conversionMiss = outcome.LateralMiss;
+
+        var direction = AttackDirection(_conversionHome);
+        var lateral = outcome.LateralMiss;
+        if (!outcome.Scored && MathF.Abs(lateral) < GoalKicking.PostsHalfWidth + 1.2f)
+            lateral = MathF.Sign(lateral == 0 ? 1 : lateral) * (GoalKicking.PostsHalfWidth + 1.2f);
+
+        _conversionFrom = _ball;
+        _conversionTo = new Vector3(ConversionLine + direction * 2.2f, 3.1f, 34f + lateral);
+        if (outcome.Short) _conversionTo = Vector3.Lerp(_conversionFrom, _conversionTo, 0.6f);
+
+        _conversionFlight = 0f;
+        _conversionStage = ConversionStage.Flight;
+        _conversionTimer = 0f;
+    }
+
+    private void UpdateConversionFlight(float dt)
+    {
+        _conversionFlight += dt;
+        var t = Math.Clamp(_conversionFlight / _conversionFlightDuration, 0f, 1f);
+
+        _ball = Vector3.Lerp(_conversionFrom, _conversionTo, t) +
+                new Vector3(0, MathF.Sin(t * MathF.PI) * 4.4f, 0);
+
+        if (t < 1f) return;
+
+        _ball = _conversionTo;
+
+        if (_conversionScored)
+        {
+            if (_conversionHome) _homeScore += 2;
+            else _awayScore += 2;
+
+            if (_kicker is not null) PlayerStat(_kicker).Goals++;
+            AddEvent(MatchEventKind.Conversion,
+                $"{_kicker?.Player.ShortName} adds the extras for {TeamName(_conversionHome)}.",
+                TeamId(_conversionHome));
+            _conversionResult = "GOAL";
+            ShowMessage("Conversion good", 1.4f);
+        }
+        else
+        {
+            AddEvent(MatchEventKind.ConversionMissed,
+                $"{_kicker?.Player.ShortName} misses the conversion for {TeamName(_conversionHome)}.",
+                TeamId(_conversionHome));
+            _conversionResult = "MISSED";
+            ShowMessage("Conversion missed", 1.4f);
+        }
+
+        _conversionStage = ConversionStage.Result;
+        _conversionTimer = 0f;
+    }
+
+    private void EndConversion()
+    {
+        var restartHome = !_conversionHome;
+        _phase = MatchPhase.Live;
+        _kicker = null;
+        _conversionResult = "";
+        Kickoff(restartHome);
+        _pause = 0.5f;
     }
 
     private void Kickoff(bool homeReceives)
@@ -839,12 +1263,32 @@ public sealed partial class ThreeDMatchScreen
 
     private void UpdateCamera(float dt)
     {
+        var blend = 1f - MathF.Exp(-4.5f * dt);
+
+        if (_phase == MatchPhase.Conversion)
+        {
+            // Sit behind the kicker and look through the posts for the whole attempt.
+            var anchor = _conversionStage is ConversionStage.Flight or ConversionStage.Result
+                ? _conversionFrom
+                : _ball;
+
+            var toward = new Vector3(ConversionLine - anchor.X, 0, 34f - anchor.Z);
+            if (toward.LengthSquared() < 0.01f) toward = new Vector3(AttackDirection(_conversionHome), 0, 0);
+            toward.Normalize();
+
+            var desired = anchor - toward * 15f + new Vector3(0, 9.5f, 0);
+            var look = anchor + toward * 14f + new Vector3(0, 2.6f, 0);
+
+            _cameraPosition = Vector3.Lerp(_cameraPosition, desired, blend);
+            _cameraLook = Vector3.Lerp(_cameraLook, look, blend);
+            return;
+        }
+
         var focus = _carrier?.Position ?? _ball;
         var direction = AttackDirection(_homePossession);
 
-        var desired = new Vector3(focus.X - direction * 16f, 12.5f, focus.Z + 0.01f);
-        var blend = 1f - MathF.Exp(-4.5f * dt);
-        _cameraPosition = Vector3.Lerp(_cameraPosition, desired, blend);
+        var openPlay = new Vector3(focus.X - direction * 16f, 12.5f, focus.Z + 0.01f);
+        _cameraPosition = Vector3.Lerp(_cameraPosition, openPlay, blend);
         _cameraLook = Vector3.Lerp(_cameraLook, focus + new Vector3(direction * 9f, 0, 0), blend);
     }
 }

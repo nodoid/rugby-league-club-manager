@@ -116,6 +116,15 @@ public sealed partial class CareerHubScreen
             }
         }
 
+        if (Ui.Button(new Rectangle(focusCard.X + 16, focusCard.Y + 156, focusCard.Width - 32, 38),
+                $"Extra goal-kicking session  ·  {Theme.ShortMoney(_career.KickingSessionCost)}", ButtonStyle.Gold,
+                _career.Balance >= _career.KickingSessionCost))
+        {
+            var (success, message) = _career.RunKickingSession();
+            Game.ShowNotice(message);
+            if (success) Game.SaveCareer();
+        }
+
         var facilityCard = new Rectangle(left.X, focusCard.Bottom + 10, left.Width, 150);
         Ui.Card(facilityCard, new Color(16, 32, 42), Theme.PanelBorder);
         Ui.Text("FACILITIES", new Vector2(facilityCard.X + 16, facilityCard.Y + 12), Theme.TextDim, TextSize.Small);

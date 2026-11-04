@@ -7,9 +7,12 @@ season plus knockout rugby.
 
 | Competition | Clubs | Tier | Salary cap | Finals | Movement |
 | --- | --- | --- | --- | --- | --- |
-| National Rugby Championship (NRC) | 17 | 1 (Australia) | £4.6m | top 8 | none |
+| National Rugby League (NRL) | 17 | 1 (Australia) | £4.6m | top 8 | none |
 | Super League | 12 | 1 (England) | £3.1m | top 6 | 1 relegated |
 | The Championship | 12 | 2 (England) | £1.5m | top 4 | 1 promoted |
+
+Money follows the competition: the NRL trades in dollars and the two English divisions in pounds, so
+all fees, wages and prize money are shown in the right currency.
 
 - **Challenge Shield** — a knockout cup for all 41 clubs, seeded by reputation and re-seeded each
   round (best remaining team plays worst). A cup round becomes due every third league week, so the
@@ -72,12 +75,16 @@ The engine follows the NRL / Super League law book:
 - Tries are worth 4, conversions and penalty goals 2, drop goals 1; a conversion is only attempted
   from the try's position, so wide tries are harder to convert.
 - Penalties restart the set; repeated infringements can produce a sin bin (ten minutes a man down),
-  which visibly weakens the defence.
+  which visibly weakens the defence. Binned players are listed with a countdown while they are off.
+- Head injury assessments: a head knock takes the player off for fifteen minutes of assessment. An
+  interchange covers the position, and at the end of the assessment he either passes and returns or
+  is ruled out for the rest of the match and misses weeks through a head knock.
 - 40/20 kicks, goal-line drop-outs, restarts from the 20-metre line, and interchanges from the bench.
 - Knockout and finals matches use golden point: ten extra minutes, first score wins; if nobody
   scores, the stronger goalkicker settles it.
-- Weather (clear, overcast, rain, wind, cold) modifies handling errors and kicking accuracy; home
-  advantage is worth a small edge; fatigue, form and morale move the probabilities during the match.
+- Weather (clear, overcast, rain, wind, cold) modifies handling errors and kicking accuracy; wind
+  has a speed and a bearing, and it pushes conversions and downfield kicks off line. Home advantage
+  is worth a small edge; fatigue, form and morale move the probabilities during the match.
 
 ## The simulation
 
@@ -110,6 +117,23 @@ On desktop, arrow keys/WASD move, **Space** passes, **K** kicks, **Shift** sprin
 On a phone the joystick and buttons are drawn in the corners and support multi-touch, so you can
 move, sprint and pass at the same time.
 
+### Goal kicking
+
+Every try is followed by a conversion, and both teams take theirs:
+
+- **Your kick** — drag left or right to place the ball, which walks it back from the posts or wider
+  for a better angle. Tap **KICK**, then strike as the power needle crosses the green band; the band
+  is where the distance needs the ball to be struck. The wind shown in the top-right corner pushes
+  the ball off line during flight.
+- **The opposition kick** — the AI kicker lines up, waits for the needle to reach the band and
+  strikes; the ball is animated between the posts and you see whether it is good or wide.
+- The maths lives in `GoalKicking` in Core, so the conversion and the kicking drill obey the same
+  rules: goal-kicking and kicking ratings set the spread, power error and the cross wind set the miss.
+- The clock stops during a conversion, as it does in a real match.
+
+**Goal-kicking training** — the club tab's training card has an extra kicking session (cost rises
+with the training base). It sharpens the two best kickers at the club by a point of goal kicking each.
+
 The 3D result is submitted to the career exactly like a simulated one: it updates the table, the
 cup, player statistics, finances and injuries.
 
@@ -118,7 +142,7 @@ cup, player statistics, finances and injuries.
 Every club is an invention. The names borrow the *place* of a real rugby-league heartland and pair it
 with an original nickname and identity:
 
-- NRC: Brisbane Stallions, Sydney Cockerels, Melbourne Cyclones, Penrith Pumas, Parramatta Rays,
+- NRL: Brisbane Stallions, Sydney Cockerels, Melbourne Cyclones, Penrith Pumas, Parramatta Rays,
   Canterbury Bulls, Sutherland Marlins, Manly Kites, South Sydney Hares, Illawarra Wyverns,
   Newcastle Paladins, Canberra Marauders, Gold Coast Colossi, Townsville Drovers, Inner West
   Cougars, Auckland Voyagers, Moreton Bay Porpoises.

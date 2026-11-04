@@ -231,7 +231,8 @@ public sealed class TopDownMatchScreen : Screen
             {
                 MatchEventKind.Try => Theme.Gold,
                 MatchEventKind.Conversion or MatchEventKind.PenaltyGoal => Theme.Accent,
-                MatchEventKind.Injury => Theme.Loss,
+                MatchEventKind.Injury or MatchEventKind.HeadAssessment => Theme.Loss,
+                MatchEventKind.SinBin => Theme.Gold,
                 _ => Theme.TextMuted
             };
 

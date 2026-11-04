@@ -15,7 +15,7 @@ competitions and clubs they are modelled on.
 
 **Management**
 
-- Three competitions: the **National Rugby Championship** (17 clubs, Australia), **Super League**
+- Three competitions: the **National Rugby League** (17 clubs, Australia), **Super League**
   (12 clubs, England) and **The Championship** (12 clubs, tier two), each with a double round-robin
   season and a finals series for the top 8 / 6 / 4.
 - The **Challenge Shield**, a knockout cup for all 41 clubs that runs alongside the league, one
@@ -49,7 +49,7 @@ competitions and clubs they are modelled on.
 
 The rules follow the NRL / Super League law book closely enough to feel right: six-tackle sets,
 10-metre retreat, four-point tries, two-point conversions and penalty goals, one-point drop goals,
-40/20 kicks, goal-line drop-outs, sin bins, interchanges and golden point.
+40/20 kicks, goal-line drop-outs, sin bins, head injury assessments, interchanges and golden point.
 
 ## Quick start
 
