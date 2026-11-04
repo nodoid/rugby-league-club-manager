@@ -1,0 +1,12 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/RugbyLeague.Android/RugbyLeague.Android.csproj" />
+    <Project Path="src/RugbyLeague.Core/RugbyLeague.Core.csproj" />
+    <Project Path="src/RugbyLeague.DesktopGL/RugbyLeague.DesktopGL.csproj" />
+    <Project Path="src/RugbyLeague.Game/RugbyLeague.Game.csproj" />
+    <Project Path="src/RugbyLeague.iOS/RugbyLeague.iOS.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/RugbyLeague.Core.Tests/RugbyLeague.Core.Tests.csproj" />
+  </Folder>
+</Solution>

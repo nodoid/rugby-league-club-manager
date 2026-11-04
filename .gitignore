@@ -1,0 +1,26 @@
+# Build output
+[Bb]in/
+[Oo]bj/
+*.user
+*.suo
+*.userprefs
+
+# MonoGame content pipeline intermediates
+Content/bin/
+Content/obj/
+
+# IDE and OS noise
+.vs/
+.idea/
+.vscode/
+*.swp
+.DS_Store
+
+# Local signing material
+*.keystore
+*.p12
+*.mobileprovision
+
+# Test and coverage output
+TestResults/
+coverage*.xml

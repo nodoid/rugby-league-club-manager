@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <RootNamespace>RugbyLeague.Game</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- The platform heads bring their own MonoGame framework package; this one is only for compiling. -->
+    <PackageReference Include="MonoGame.Framework.DesktopGL" Version="3.8.*" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\RugbyLeague.Core\RugbyLeague.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="Content\Content.mgcb" />
+    <None Include="Content\Fonts\OFL.txt" />
+    <Compile Remove="Content\**\*.cs" />
+  </ItemGroup>
+
+</Project>
