@@ -946,7 +946,12 @@ public sealed partial class ThreeDMatchScreen
         if (_carrier is null) return;
 
         var line = TryLine(_carrier.IsHome);
-        var scored = _carrier.IsHome ? _carrier.Position.X >= line : _carrier.Position.X <= line;
+        var direction = AttackDirection(_carrier.IsHome);
+
+        // The try line is at the end the carrier's own team is attacking, so which side of it counts
+        // as a try has to follow the direction of play. Assuming home always attacks to the right
+        // made every restart in the second half an instant try for both teams.
+        var scored = direction > 0 ? _carrier.Position.X >= line : _carrier.Position.X <= line;
         if (!scored) return;
 
         ScoreTry(_carrier);
