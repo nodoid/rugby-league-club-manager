@@ -22,10 +22,95 @@ public sealed partial class CareerHubScreen
         else
         {
             DrawNextMatch(left);
-            DrawNews(new Rectangle(left.X, left.Y + 246, left.Width, left.Height - 246));
+            DrawLeagueTable(new Rectangle(left.X, left.Y + 246, left.Width, left.Height - 246));
         }
 
         DrawClubSnapshot(right);
+    }
+
+    /// <summary>The player's competition, under the fixture card on the dashboard.</summary>
+    private void DrawLeagueTable(Rectangle area)
+    {
+        Ui.Card(area, new Color(13, 26, 35), Theme.PanelBorder);
+
+        var header = new Rectangle(area.X + 14, area.Y + 12, area.Width - 28, 22);
+        Ui.Text($"{League.Name.ToUpperInvariant()} TABLE", new Vector2(header.X, header.Y), Theme.Gold,
+            TextSize.Small);
+        Ui.TextIn("P", new Rectangle(header.Right - 342, header.Y, 32, 22), Theme.TextDim, TextSize.Small, TextAlign.Center);
+        Ui.TextIn("W", new Rectangle(header.Right - 308, header.Y, 32, 22), Theme.TextDim, TextSize.Small, TextAlign.Center);
+        Ui.TextIn("D", new Rectangle(header.Right - 274, header.Y, 32, 22), Theme.TextDim, TextSize.Small, TextAlign.Center);
+        Ui.TextIn("L", new Rectangle(header.Right - 240, header.Y, 32, 22), Theme.TextDim, TextSize.Small, TextAlign.Center);
+        Ui.TextIn("+/-", new Rectangle(header.Right - 206, header.Y, 56, 22), Theme.TextDim, TextSize.Small, TextAlign.Center);
+        Ui.TextIn("PTS", new Rectangle(header.Right - 146, header.Y, 44, 22), Theme.TextDim, TextSize.Small, TextAlign.Center);
+        Ui.TextIn("FORM", new Rectangle(header.Right - 96, header.Y, 96, 22), Theme.TextDim, TextSize.Small, TextAlign.Center);
+
+        var table = _career.TableFor(League);
+        var rowHeight = 21;
+        var rows = Math.Max(1, (area.Height - 34 - 22) / rowHeight);
+
+        var displayed = table.Take(rows).ToList();
+        var playerRow = table.FirstOrDefault(r => r.TeamId == _career.PlayerTeamId);
+        if (playerRow is not null && table.IndexOf(playerRow) >= rows && displayed.Count > 0)
+        {
+            displayed[^1] = playerRow;
+        }
+
+        var finalsCut = League.FinalsSpots;
+        var relegationCut = League.HasPromotionRelegation ? table.Count - League.RelegationSpots : 0;
+
+        var y = area.Y + 36;
+        foreach (var row in displayed)
+        {
+            var rank = table.IndexOf(row) + 1;
+            var isPlayer = row.TeamId == _career.PlayerTeamId;
+            var rectangle = new Rectangle(area.X + 8, y, area.Width - 16, rowHeight);
+
+            if (isPlayer) Ui.Fill(rectangle, new Color(32, 62, 56));
+            else if (rank % 2 == 0) Ui.Fill(rectangle, new Color(18, 32, 42));
+
+            if (rank <= finalsCut) Ui.Fill(new Rectangle(rectangle.X, rectangle.Y, 3, rectangle.Height), Theme.Accent);
+            else if (relegationCut > 0 && rank > relegationCut)
+                Ui.Fill(new Rectangle(rectangle.X, rectangle.Y, 3, rectangle.Height), Theme.Loss);
+
+            Ui.Text(rank.ToString(), new Vector2(rectangle.X + 10, rectangle.Y + 3), Theme.TextMuted, TextSize.Small);
+
+            var team = _career.TryTeam(row.TeamId);
+            if (team is not null)
+                Ui.Fill(new Rectangle(rectangle.X + 30, rectangle.Y + 7, 8, 9), Theme.FromHex(team.PrimaryColor));
+
+            Ui.Text(Ui.Ellipsis(row.TeamName, TextSize.Small, 200), new Vector2(rectangle.X + 44, rectangle.Y + 3),
+                isPlayer ? Theme.Text : Theme.TextMuted, TextSize.Small);
+
+            Ui.TextIn(row.Played.ToString(), new Rectangle(rectangle.Right - 342, rectangle.Y, 32, rowHeight),
+                Theme.TextMuted, TextSize.Small, TextAlign.Center);
+            Ui.TextIn(row.Won.ToString(), new Rectangle(rectangle.Right - 308, rectangle.Y, 32, rowHeight),
+                Theme.TextMuted, TextSize.Small, TextAlign.Center);
+            Ui.TextIn(row.Drawn.ToString(), new Rectangle(rectangle.Right - 274, rectangle.Y, 32, rowHeight),
+                Theme.TextMuted, TextSize.Small, TextAlign.Center);
+            Ui.TextIn(row.Lost.ToString(), new Rectangle(rectangle.Right - 240, rectangle.Y, 32, rowHeight),
+                Theme.TextMuted, TextSize.Small, TextAlign.Center);
+            Ui.TextIn(row.Difference > 0 ? $"+{row.Difference}" : row.Difference.ToString(),
+                new Rectangle(rectangle.Right - 206, rectangle.Y, 56, rowHeight), Theme.TextMuted, TextSize.Small,
+                TextAlign.Center);
+            Ui.TextIn(row.Points.ToString(), new Rectangle(rectangle.Right - 146, rectangle.Y, 44, rowHeight),
+                Theme.Text, TextSize.Small, TextAlign.Center);
+
+            var formX = rectangle.Right - 92;
+            foreach (var form in row.Form.TakeLast(5))
+            {
+                var colour = form == "W" ? Theme.Win : form == "D" ? Theme.Draw : Theme.Loss;
+                var box = new Rectangle(formX, rectangle.Y + 5, 16, 11);
+                Ui.Fill(box, colour);
+                Ui.TextIn(form, box, Theme.ContrastingText(colour), TextSize.Small, TextAlign.Center);
+                formX += 18;
+            }
+
+            y += rowHeight;
+        }
+
+        if (y + 18 <= area.Bottom)
+            Ui.Text("Green: finals places    Red: relegation places", new Vector2(area.X + 14, area.Bottom - 20),
+                Theme.TextDim, TextSize.Small);
     }
 
     private void DrawNextMatch(Rectangle area)
@@ -94,27 +179,26 @@ public sealed partial class CareerHubScreen
         Game.Screens.Push(new PostMatchScreen(Game, result, round));
     }
 
-    private void DrawNews(Rectangle area)
+    private void DrawNews(Rectangle area, int rowHeight = 62)
     {
         Ui.Card(area, new Color(13, 26, 35), Theme.PanelBorder);
-        Ui.Text("CLUB NEWS", new Vector2(area.X + 16, area.Y + 12), Theme.TextMuted, TextSize.Small);
+        Ui.Text("CLUB NEWS", new Vector2(area.X + 16, area.Y + 10), Theme.TextMuted, TextSize.Small);
 
-        var y = area.Y + 40;
-        var rowHeight = 62;
-        var maxRows = (area.Height - 50) / rowHeight;
+        var y = area.Y + 32;
+        var maxRows = (area.Height - 34) / rowHeight;
 
         foreach (var item in _career.News.Take(maxRows))
         {
             var row = new Rectangle(area.X + 10, y, area.Width - 20, rowHeight);
             if (item.IsRead) Ui.Fill(new Rectangle(row.X, row.Bottom - 1, row.Width, 1), Theme.PanelBorder);
-            else Ui.Fill(new Rectangle(row.X, row.Y + 10, 4, row.Height - 20), Theme.Gold);
+            else Ui.Fill(new Rectangle(row.X, row.Y + 8, 4, row.Height - 16), Theme.Gold);
 
             var headlineColor = item.IsRead ? Theme.TextMuted : Theme.Text;
             Ui.Text(Ui.Ellipsis(item.Headline, TextSize.Small, row.Width - 28),
-                new Vector2(row.X + 14, row.Y + 6), headlineColor, TextSize.Small);
+                new Vector2(row.X + 14, row.Y + 3), headlineColor, TextSize.Small);
 
             Ui.Text(Ui.Ellipsis(item.Body, TextSize.Small, row.Width - 28),
-                new Vector2(row.X + 14, row.Y + 28), Theme.TextDim, TextSize.Small);
+                new Vector2(row.X + 14, row.Y + 22), Theme.TextDim, TextSize.Small);
             y += rowHeight;
 
             if (y > area.Bottom - rowHeight) break;
@@ -131,7 +215,7 @@ public sealed partial class CareerHubScreen
         var injuries = Club.Squad.Count(p => p.IsInjured);
 
         var tileWidth = (area.Width - 12) / 2;
-        var tileHeight = 84;
+        var tileHeight = 76;
 
         StatTile(new Rectangle(area.X, area.Y, tileWidth, tileHeight), "League position",
             $"{position}{Ordinal(position)}", position <= League.FinalsSpots ? Theme.Accent : Theme.Gold);
@@ -142,14 +226,14 @@ public sealed partial class CareerHubScreen
         StatTile(new Rectangle(area.X + tileWidth + 12, area.Y + tileHeight + 12, tileWidth, tileHeight),
             "Injuries", $"{injuries} out", injuries == 0 ? Theme.Win : Theme.Loss);
 
-        var formCard = new Rectangle(area.X, area.Y + (tileHeight + 12) * 2, area.Width, 116);
+        var formCard = new Rectangle(area.X, area.Y + (tileHeight + 12) * 2, area.Width, 104);
         Ui.Card(formCard, new Color(16, 32, 42), Theme.PanelBorder, shadow: false);
-        Ui.Text("FORM", new Vector2(formCard.X + 14, formCard.Y + 12), Theme.TextDim, TextSize.Small);
+        Ui.Text("FORM", new Vector2(formCard.X + 14, formCard.Y + 10), Theme.TextDim, TextSize.Small);
 
         var form = row?.Form ?? new List<string>();
         if (form.Count == 0)
         {
-            Ui.Text("No matches played yet.", new Vector2(formCard.X + 14, formCard.Y + 40), Theme.TextMuted,
+            Ui.Text("No matches played yet.", new Vector2(formCard.X + 14, formCard.Y + 36), Theme.TextMuted,
                 TextSize.Small);
         }
         else
@@ -158,23 +242,21 @@ public sealed partial class CareerHubScreen
             foreach (var entry in form.TakeLast(8))
             {
                 var colour = entry == "W" ? Theme.Win : entry == "D" ? Theme.Draw : Theme.Loss;
-                var box = new Rectangle(x, formCard.Y + 38, 30, 30);
+                var box = new Rectangle(x, formCard.Y + 30, 28, 28);
                 Ui.Fill(box, colour);
                 Ui.TextIn(entry, box, Theme.ContrastingText(colour), TextSize.Small, TextAlign.Center);
-                x += 36;
+                x += 34;
             }
         }
 
         Ui.Text(Ui.Ellipsis($"Board target: top-half  ·  {(position <= League.FinalsSpots ? "on track" : "work to do")}",
                 TextSize.Small, formCard.Width - 28),
-            new Vector2(formCard.X + 14, formCard.Y + 84),
+            new Vector2(formCard.X + 14, formCard.Y + 70),
             position <= League.FinalsSpots ? Theme.TextMuted : Theme.Gold, TextSize.Small);
 
-        var nextCard = new Rectangle(area.X, formCard.Bottom + 12, area.Width, area.Bottom - formCard.Bottom - 12);
-        if (nextCard.Height < 90) return;
-
-        Ui.Card(nextCard, new Color(16, 32, 42), Theme.PanelBorder, shadow: false);
-        Ui.Text("TOP SCORER", new Vector2(nextCard.X + 14, nextCard.Y + 12), Theme.TextDim, TextSize.Small);
+        var topCard = new Rectangle(area.X, formCard.Bottom + 12, area.Width, 80);
+        Ui.Card(topCard, new Color(16, 32, 42), Theme.PanelBorder, shadow: false);
+        Ui.Text("TOP SCORER", new Vector2(topCard.X + 14, topCard.Y + 10), Theme.TextDim, TextSize.Small);
 
         var topScorer = Club.Squad
             .OrderByDescending(p => p.Season.Points)
@@ -183,15 +265,19 @@ public sealed partial class CareerHubScreen
 
         if (topScorer is null)
         {
-            Ui.Text("No appearances yet.", new Vector2(nextCard.X + 14, nextCard.Y + 40), Theme.TextMuted,
+            Ui.Text("No appearances yet.", new Vector2(topCard.X + 14, topCard.Y + 32), Theme.TextMuted,
                 TextSize.Small);
         }
         else
         {
-            Ui.Text(topScorer.Name, new Vector2(nextCard.X + 14, nextCard.Y + 40), Theme.Text, TextSize.Body);
-            Ui.Text($"{topScorer.Season.Points} pts  ·  {topScorer.Season.Tries} tries  ·  {topScorer.Season.Metres} m",
-                new Vector2(nextCard.X + 14, nextCard.Y + 70), Theme.TextMuted, TextSize.Small);
+            Ui.Text(topScorer.Name, new Vector2(topCard.X + 14, topCard.Y + 30), Theme.Text, TextSize.Body);
+            Ui.Text(Ui.Ellipsis($"{topScorer.Season.Points} pts  ·  {topScorer.Season.Tries} tries  ·  {topScorer.Season.Metres} m",
+                    TextSize.Small, topCard.Width - 28),
+                new Vector2(topCard.X + 14, topCard.Y + 54), Theme.TextMuted, TextSize.Small);
         }
+
+        var newsCard = new Rectangle(area.X, topCard.Bottom + 12, area.Width, area.Bottom - topCard.Bottom - 12);
+        if (newsCard.Height >= 96) DrawNews(newsCard, 50);
     }
 
     private void DrawSeasonReview(Rectangle area)
