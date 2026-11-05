@@ -11,7 +11,10 @@ import numpy as np
 from PIL import Image
 
 ROOT = "/Users/pauljohnson/RiderProjects/rugby/store"
-APPSTORE_IPHONE = (2868, 1320)
+# iPhone with Dynamic Island: the medium display (iPhone 18 Pro, 6.3") is the size the App Store
+# requires, so that is what goes in appstore/iphone. The 6.9" large-display size is kept too.
+APPSTORE_IPHONE = (2622, 1206)
+APPSTORE_IPHONE_LARGE = (2868, 1320)
 APPSTORE_IPAD = (2752, 2064)
 PLAY_PHONE = (1920, 1080)
 PLAY_TABLET = (1920, 1200)
@@ -87,13 +90,15 @@ def main():
     band = ipad_canvas("/tmp/ipadshots/i08.png")
     print("iPad canvas", band.size, "aspect", round(band.width / band.height, 3))
 
-    for directory in ("appstore/iphone", "appstore/ipad", "googleplay/phone", "googleplay/tablet"):
+    for directory in ("appstore/iphone", "appstore/iphone-6.9", "appstore/ipad", "googleplay/phone",
+                      "googleplay/tablet"):
         os.makedirs(os.path.join(ROOT, directory), exist_ok=True)
 
     for name, source, _ in IPHONE_SHOTS:
         image = Image.open(os.path.join("/tmp/phshots", source)).convert("RGB")
-        image = image.resize(APPSTORE_IPHONE, Image.LANCZOS)
-        image.save(os.path.join(ROOT, "appstore/iphone", name))
+        image.resize(APPSTORE_IPHONE_LARGE, Image.LANCZOS).save(
+            os.path.join(ROOT, "appstore/iphone-6.9", name))
+        image.resize(APPSTORE_IPHONE, Image.LANCZOS).save(os.path.join(ROOT, "appstore/iphone", name))
 
         play = crop_to_aspect(Image.open(os.path.join("/tmp/phshots", source)).convert("RGB"), 16 / 9)
         play = play.resize(PLAY_PHONE, Image.LANCZOS)
@@ -104,7 +109,9 @@ def main():
         fit_pad(band, APPSTORE_IPAD).save(os.path.join(ROOT, "appstore/ipad", name))
         fit_pad(band, PLAY_TABLET).save(os.path.join(ROOT, "googleplay/tablet", name))
 
-    for name, size in (("appstore/iphone", APPSTORE_IPHONE), ("appstore/ipad", APPSTORE_IPAD),
+    for name, size in (("appstore/iphone", APPSTORE_IPHONE),
+                       ("appstore/iphone-6.9", APPSTORE_IPHONE_LARGE),
+                       ("appstore/ipad", APPSTORE_IPAD),
                        ("googleplay/phone", PLAY_PHONE), ("googleplay/tablet", PLAY_TABLET)):
         folder = os.path.join(ROOT, name)
         for file in sorted(os.listdir(folder)):

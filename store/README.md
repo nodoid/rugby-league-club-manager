@@ -9,7 +9,8 @@ the screenshots are the real UI at device resolution.
 | Folder | Contents | Required size |
 | --- | --- | --- |
 | `appstore/copy.md` | App name, subtitle, promo text, description, keywords, privacy answers. | — |
-| `appstore/iphone/` | 7 screenshots from an iPhone 18 Pro Max simulator (6.9" display). | 2868 × 1320 landscape |
+| `appstore/iphone/` | 7 screenshots, scaled from the 6.9" captures to the medium Dynamic Island size that App Store Connect requires. | 2622 × 1206 landscape |
+| `appstore/iphone-6.9/` | The same seven screenshots at the 6.9" large-display size, for the optional larger slot. | 2868 × 1320 landscape |
 | `appstore/ipad/` | 7 screenshots from an iPad Pro 13" simulator, plus the App Store preview. | 2752 × 2064 landscape |
 | `appstore/ipad/preview-1600x1200.mp4` | 28-second App Store app preview, H.264, no audio. | 1600 × 1200 |
 | `googleplay/copy.md` | Title, short description, full description, data-safety answers. | — |
@@ -40,6 +41,9 @@ The script prints the size of every file it writes, so a wrong size is visible i
 
 ## Apple size check
 
-Current requirement at the time of writing: iPhone 6.9" (1320 × 2868 portrait or 2868 × 1320
-landscape) and iPad 13" (2064 × 2752 portrait or 2752 × 2064 landscape). Both sets here are
-landscape and match exactly; `make_store_art.py` asserts it on every run.
+App Store Connect requires at least one iPhone screenshot for the Dynamic Island **medium display**
+(1206 × 2622 portrait or 2622 × 1206 landscape) and, if the app runs on iPad, iPad 13"
+(2064 × 2752 portrait or 2752 × 2064 landscape). The 6.9" large-display size (1320 × 2868 portrait
+or 2868 × 1320 landscape) is optional, which is why those files live in `iphone-6.9/` rather than in
+the folder you upload from. Every set here is landscape and matches its size exactly;
+`make_store_art.py` re-checks every file on each run.
