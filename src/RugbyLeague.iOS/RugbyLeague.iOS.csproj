@@ -8,6 +8,8 @@
     <ApplicationTitle>Rugby League Club Manager</ApplicationTitle>
     <ApplicationVersion>1</ApplicationVersion>
     <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
+    <!-- Tells actool to compile AppIcon.appiconset into Assets.car; without it the icon is dropped. -->
+    <AppIcon>AppIcon</AppIcon>
     <CodesignEntitlements>Entitlements.plist</CodesignEntitlements>
     <MtouchLink>SdkOnly</MtouchLink>
     <ImplicitUsings>enable</ImplicitUsings>
