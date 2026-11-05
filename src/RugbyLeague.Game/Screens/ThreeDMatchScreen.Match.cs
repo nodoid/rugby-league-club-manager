@@ -61,6 +61,7 @@ public sealed partial class ThreeDMatchScreen
     private int _awayTries;
     private bool _goldenPoint;
     private float _pause;
+    private float _controlsTime = 9f;
     private float _messageTime;
     private string _message = "";
     private float _lastDt;

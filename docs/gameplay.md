@@ -120,7 +120,8 @@ On desktop, arrow keys/WASD move, **Space** passes, **K** kicks, **Shift** sprin
 On a phone the joystick and buttons are drawn in the corners and support multi-touch, so you can
 move, sprint and pass at the same time. The stick is relative to your own team, so it steers
 defending players just as well as attackers, and the marker at each player's feet shows which way he
-is facing. **PAUSE** in the top-left stops the match and offers **Resume** or **Leave match**.
+is facing. **PAUSE** in the top-left stops the match and offers **Resume** or **Leave match**, and a
+short **HOW TO PLAY** card lists every control when a match kicks off; any tap (or Enter) dismisses it.
 
 ### Goal kicking
 

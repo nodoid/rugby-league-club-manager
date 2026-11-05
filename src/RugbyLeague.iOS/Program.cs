@@ -44,6 +44,7 @@ internal sealed class AppDelegate : UIApplicationDelegate
         }
 
 
+
         // MonoGame's touch panel does not receive the window's touches on iOS 26+, so a transparent
         // view above the game view forwards them into the shared input state instead.
         if (game.Services.GetService(typeof(UIViewController)) is UIViewController controller)

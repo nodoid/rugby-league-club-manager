@@ -45,6 +45,14 @@ public sealed partial class ThreeDMatchScreen : Screen
 
         if (Math.Abs(_layoutWidth - View.Width) > 1) LayoutControls();
 
+        // The controls card explains the pad and buttons before the first play-the-ball.
+        if (_controlsTime > 0)
+        {
+            _controlsTime -= (float)gameTime.ElapsedGameTime.TotalSeconds;
+            if (Input.PointerPressed || Input.IsNewKeyPress(Microsoft.Xna.Framework.Input.Keys.Enter))
+                _controlsTime = 0f;
+        }
+
         // A finger on the field can always stop the match, which matters on a phone where there is
         // no keyboard to fall back on.
         if (!_finished && (Input.AnyPointerPressedIn(_pauseButton)
@@ -360,6 +368,45 @@ public sealed partial class ThreeDMatchScreen : Screen
 
         if (_finished) DrawFullTime();
         else if (_paused) DrawPaused();
+        else if (_controlsTime > 0) DrawControls();
+    }
+
+    private void DrawControls()
+    {
+        var width = Math.Min(820, (int)View.Width - 100);
+        var rows = new (string Key, string Text)[]
+        {
+            ("STICK", "Drag in the left pad to run any direction; the foot marker shows your facing."),
+            ("PASS", "Move the ball to the nearest support runner."),
+            ("KICK", "Punt downfield; on a conversion, stop the bar in the green band."),
+            ("TACKLE", "While defending: close the gap, then tackle."),
+            ("RUN", "Hold to sprint."),
+            ("PAUSE", "Top-left: resume or leave the match.")
+        };
+
+        var height = 96 + rows.Length * 34;
+        var panel = new Rectangle((int)(View.Width / 2f - width / 2f), (int)(View.Height / 2f - height / 2f),
+            width, height);
+        Ui.Card(panel, new Color(10, 22, 30) * 0.97f, Theme.Accent);
+
+        Ui.TextIn("HOW TO PLAY", new Rectangle(panel.X, panel.Y + 18, panel.Width, 30), Theme.Gold,
+            TextSize.Subhead, TextAlign.Center);
+
+        var y = panel.Y + 58;
+        foreach (var (key, text) in rows)
+        {
+            Ui.TextIn(key, new Rectangle(panel.X + 20, y, 110, 24), Theme.Gold, TextSize.Small, TextAlign.Right);
+            Ui.Text(Ui.Ellipsis(text, TextSize.Small, panel.Width - 190), new Vector2(panel.X + 148, y),
+                Theme.Text, TextSize.Small);
+            y += 34;
+        }
+
+        var footer = Game.IsDesktop
+            ? "Tap or Enter to play  ·  WASD move  ·  Space pass  ·  K kick  ·  J tackle  ·  Shift sprint"
+            : "Tap to play";
+        Ui.TextIn(Ui.Ellipsis(footer, TextSize.Small, panel.Width - 40),
+            new Rectangle(panel.X, panel.Bottom - 26, panel.Width, 20), Theme.TextDim, TextSize.Small,
+            TextAlign.Center);
     }
 
     private void DrawPauseButton()
