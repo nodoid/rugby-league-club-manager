@@ -20,6 +20,7 @@ public static class TeamDatabase
         PlayingStyle Style);
 
     public static readonly Guid NrlId = new("11111111-1111-1111-1111-111111111111");
+    public static readonly Guid NrlChampionshipId = new("44444444-4444-4444-4444-444444444444");
     public static readonly Guid SuperLeagueId = new("22222222-2222-2222-2222-222222222222");
     public static readonly Guid ChampionshipId = new("33333333-3333-3333-3333-333333333333");
 
@@ -30,18 +31,30 @@ public static class TeamDatabase
         new("Melbourne", "Cyclones", "MEL", "#3B1361", "#9D7BD8", "Docklands Arena", 30_050, 92, PlayingStyle.Expansive),
         new("Penrith", "Pumas", "PEN", "#0B3D2E", "#E8D9A0", "Blue Mountains Park", 22_500, 88, PlayingStyle.ForwardPower),
         new("Parramatta", "Rays", "PAR", "#0A3D62", "#F5C518", "Wentworth Field", 30_000, 76, PlayingStyle.Balanced),
-        new("Canterbury", "Bulls", "CBY", "#0B3C8C", "#FFFFFF", "Belmore Ground", 20_000, 72, PlayingStyle.ForwardPower),
         new("Sutherland", "Marlins", "SUT", "#0E6E6E", "#111111", "Southern Cross Oval", 18_500, 74, PlayingStyle.Balanced),
         new("Manly", "Kites", "MAN", "#6B1D5E", "#F2F2F2", "Northern Beaches Park", 18_000, 78, PlayingStyle.Expansive),
         new("South Sydney", "Hares", "SOU", "#1B3A2B", "#C8102E", "Redfern Bowl", 20_500, 80, PlayingStyle.Balanced),
         new("Illawarra", "Wyverns", "ILL", "#B3121B", "#FFFFFF", "Steelworks Oval", 22_000, 75, PlayingStyle.Balanced),
-        new("Newcastle", "Paladins", "NEW", "#1E4D8C", "#D22B2B", "Hunter Stadium North", 30_000, 73, PlayingStyle.KickingGame),
         new("Canberra", "Marauders", "CAN", "#0F5B3E", "#E4B429", "Capital Oval", 25_000, 77, PlayingStyle.ForwardPower),
-        new("Gold Coast", "Colossi", "GLD", "#0A7FA0", "#F7D54A", "Seabreeze Stadium", 27_500, 70, PlayingStyle.Expansive),
         new("Townsville", "Drovers", "TWN", "#1F3F7A", "#F2C230", "Cattleman's Park", 25_000, 79, PlayingStyle.ForwardPower),
+        new("Auckland", "Voyagers", "AKL", "#0F4C81", "#C0C0C0", "Waitemata Arena", 25_000, 76, PlayingStyle.Expansive)
+    };
+
+    /// <summary>The Australian second division, the NRL's route in and out of the top flight.</summary>
+    public static readonly ClubSeed[] NrlChampionshipClubs =
+    {
+        new("Newcastle", "Paladins", "NEW", "#1E4D8C", "#D22B2B", "Hunter Stadium North", 30_000, 73, PlayingStyle.KickingGame),
+        new("Canterbury", "Bulls", "CBY", "#0B3C8C", "#FFFFFF", "Belmore Ground", 20_000, 72, PlayingStyle.ForwardPower),
+        new("Gold Coast", "Colossi", "GLD", "#0A7FA0", "#F7D54A", "Seabreeze Stadium", 27_500, 70, PlayingStyle.Expansive),
         new("Inner West", "Cougars", "IWC", "#D2691E", "#111111", "Leichhardt Field", 17_500, 68, PlayingStyle.Balanced),
-        new("Auckland", "Voyagers", "AKL", "#0F4C81", "#C0C0C0", "Waitemata Arena", 25_000, 76, PlayingStyle.Expansive),
-        new("Moreton Bay", "Porpoises", "MBP", "#12776C", "#F5F5DC", "Redcliffe Bayside", 11_500, 66, PlayingStyle.Balanced)
+        new("Moreton Bay", "Porpoises", "MBP", "#12776C", "#F5F5DC", "Redcliffe Bayside", 11_500, 66, PlayingStyle.Balanced),
+        new("Perth", "Pioneers", "PER", "#1B3A5C", "#F2C230", "Swan River Oval", 20_000, 66, PlayingStyle.Expansive),
+        new("Christchurch", "Crows", "CHC", "#1B1B1B", "#C8102E", "Canterbury Basin", 18_000, 63, PlayingStyle.Balanced),
+        new("Adelaide", "Anchors", "ADE", "#0F4C5C", "#E8B923", "Torrens Basin", 17_500, 62, PlayingStyle.KickingGame),
+        new("Toowoomba", "Timberjacks", "TOO", "#3E5C1B", "#E4B429", "Rangeview Ground", 10_500, 60, PlayingStyle.ForwardPower),
+        new("Rockhampton", "Rustlers", "ROC", "#6B1B1B", "#E8D9A0", "Fitzroy Park", 11_000, 59, PlayingStyle.ForwardPower),
+        new("Hobart", "Thylacines", "HOB", "#3B2F2F", "#D4AF37", "Derwent Park", 15_000, 58, PlayingStyle.Attritional),
+        new("Darwin", "Darters", "DAR", "#7A3E00", "#F0C24B", "Top End Oval", 12_500, 57, PlayingStyle.Expansive)
     };
 
     public static readonly ClubSeed[] SuperLeagueClubs =
@@ -95,12 +108,30 @@ public static class TeamDatabase
                 ShortName = "NRL",
                 Tier = 1,
                 Country = "Australia",
-                HasPromotionRelegation = false,
-                FinalsSpots = 8,
+                HasPromotionRelegation = true,
+                PromotionSpots = 1,
+                RelegationSpots = 1,
+                FinalsSpots = 6,
                 ByePoints = 2,
                 SalaryCap = 4_600_000,
                 TvMoney = 9_500_000,
                 PrizeMoney = 1_200_000
+            },
+            new()
+            {
+                Id = NrlChampionshipId,
+                Name = "NRL Championship",
+                ShortName = "NR2",
+                Tier = 2,
+                Country = "Australia",
+                HasPromotionRelegation = true,
+                PromotionSpots = 1,
+                RelegationSpots = 0,
+                FinalsSpots = 4,
+                ByePoints = 2,
+                SalaryCap = 2_600_000,
+                TvMoney = 1_800_000,
+                PrizeMoney = 400_000
             },
             new()
             {

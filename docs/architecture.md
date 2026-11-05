@@ -55,10 +55,10 @@ The season is a state machine:
 1. **Regular** — 22 league rounds, plus a Challenge Shield round every third week. Your fixture for
    the week is exposed as a `PendingMatch` (league, cup or finals) and your lineup, tactics and
    weather are baked into a `MatchSetup`.
-2. **Finals** — the top 8 (NRL), 6 (Super League) and 4 (Championship) play a seeded knockout for
-   the title.
-3. **Off-season** — contract expiries, retirements, youth intake, promotion/relegation between
-   Super League and The Championship, then a new season.
+2. **Finals** — the top 6 (NRL, Super League) and 4 (NRL Championship, The Championship) play a
+   seeded knockout for the title.
+3. **Off-season** — contract expiries, retirements, youth intake, promotion/relegation inside each
+   country (NRL ↔ NRL Championship, Super League ↔ The Championship), then a new season.
 
 `MatchSetup` carries the two team sheets and all inputs the engine needs, so the same fixture can be
 simulated headlessly, replayed frame by frame, or handed to the 3D screen.

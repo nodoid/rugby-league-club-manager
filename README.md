@@ -15,13 +15,15 @@ competitions and clubs they are modelled on.
 
 **Management**
 
-- Three competitions: the **National Rugby League** (17 clubs, Australia), **Super League**
-  (12 clubs, England) and **The Championship** (12 clubs, tier two), each with a double round-robin
-  season and a finals series for the top 8 / 6 / 4.
-- The **Challenge Shield**, a knockout cup for all 41 clubs that runs alongside the league, one
+- Four competitions, two countries and two divisions each: the **National Rugby League** (12 clubs,
+  Australia, tier one), the **NRL Championship** (12 clubs, Australia, tier two), **Super League**
+  (12 clubs, England, tier one) and **The Championship** (12 clubs, England, tier two). Every
+  division plays a double round-robin season and a seeded finals series for the top 6 / 4 / 6 / 4.
+- The **Challenge Shield**, a knockout cup for all 48 clubs that runs alongside the league, one
   round every three weeks.
-- **Promotion and relegation** between Super League and The Championship (one up, one down,
-  decided by league position plus a play-off for the Championship challenger).
+- **Promotion and relegation** within each country (one up, one down, decided by league position
+  plus a play-off for the second-tier runner-up): NRL ↔ NRL Championship and Super League ↔
+  The Championship.
 - Full squad management: 13-a-side lineups plus interchange bench, a "select best XVII" shortcut,
   player ratings, form, sharpness, morale, fitness, contracts and retirements.
 - **Training** with seven focuses (balanced, fitness, attack, defence, handling, kicking, recovery),
@@ -89,7 +91,7 @@ Device builds, signing and deployment are covered in [docs/building.md](docs/bui
 
 ## Fictional names
 
-All 41 clubs, every player, sponsor and brand in the game are invented. Club names use real cities
+All 48 clubs, every player, sponsor and brand in the game are invented. Club names use real cities
 and regions with invented nicknames (for example *Brisbane Stallions*, *Wigan Legion*) so the
 competitions feel familiar without copying any real club's identity, badge, colours or sponsor. See
 [the notice in the gameplay docs](docs/gameplay.md#fictional-clubs-and-players).

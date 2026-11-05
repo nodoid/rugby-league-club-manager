@@ -7,20 +7,23 @@ season plus knockout rugby.
 
 | Competition | Clubs | Tier | Salary cap | Finals | Movement |
 | --- | --- | --- | --- | --- | --- |
-| National Rugby League (NRL) | 17 | 1 (Australia) | £4.6m | top 8 | none |
+| National Rugby League (NRL) | 12 | 1 (Australia) | £4.6m | top 6 | 1 relegated |
+| NRL Championship | 12 | 2 (Australia) | £2.6m | top 4 | 1 promoted |
 | Super League | 12 | 1 (England) | £3.1m | top 6 | 1 relegated |
 | The Championship | 12 | 2 (England) | £1.5m | top 4 | 1 promoted |
 
-Money follows the competition: the NRL trades in dollars and the two English divisions in pounds, so
+Both countries run a two-tier pyramid, so every manager has a route up and a trapdoor down. Money
+follows the competition: the Australian divisions trade in dollars and the two English ones in pounds, so
 all fees, wages and prize money are shown in the right currency.
 
-- **Challenge Shield** — a knockout cup for all 41 clubs, seeded by reputation and re-seeded each
+- **Challenge Shield** — a knockout cup for all 48 clubs, seeded by reputation and re-seeded each
   round (best remaining team plays worst). A cup round becomes due every third league week, so the
   cup final lands late in the season.
-- **Promotion and relegation** — the Championship's finals winner goes up automatically, swapping
-  with the bottom club of Super League. A relegation play-off then pits Super League's second-bottom
-  club against the strongest remaining Championship finisher; if the challenger wins, the clubs swap
-  divisions as well. The game news feed reports every movement.
+- **Promotion and relegation** — it happens separately in each country: the second tier's finals
+  winner goes up automatically, swapping with the bottom club of the division above. A relegation
+  play-off then pits the second-bottom club of the top flight against the strongest remaining
+  second-tier finisher; if the challenger wins, the clubs swap divisions as well. That means NRL ↔
+  NRL Championship and Super League ↔ The Championship. The game news feed reports every movement.
 - **Finals** — the top clubs play a seeded knockout for the league title, giving the top two (or
   the top seed in a four-team series) a bye into the semi-finals.
 
@@ -143,9 +146,11 @@ Every club is an invention. The names borrow the *place* of a real rugby-league 
 with an original nickname and identity:
 
 - NRL: Brisbane Stallions, Sydney Cockerels, Melbourne Cyclones, Penrith Pumas, Parramatta Rays,
-  Canterbury Bulls, Sutherland Marlins, Manly Kites, South Sydney Hares, Illawarra Wyverns,
-  Newcastle Paladins, Canberra Marauders, Gold Coast Colossi, Townsville Drovers, Inner West
-  Cougars, Auckland Voyagers, Moreton Bay Porpoises.
+  Sutherland Marlins, Manly Kites, South Sydney Hares, Illawarra Wyverns, Canberra Marauders,
+  Townsville Drovers, Auckland Voyagers.
+- NRL Championship: Newcastle Paladins, Canterbury Bulls, Gold Coast Colossi, Inner West Cougars,
+  Moreton Bay Porpoises, Perth Pioneers, Christchurch Crows, Adelaide Anchors, Toowoomba
+  Timberjacks, Rockhampton Rustlers, Hobart Thylacines, Darwin Darters.
 - Super League: Wigan Legion, St Helens Vulcans, Leeds Mammoths, Warrington Coyotes, Hull Dockers,
   Hull Trawlers, Catalan Suns, Leigh Lynx, Salford Imps, Huddersfield Engineers, Castleford Jaguars,
   Wakefield Abbeys.

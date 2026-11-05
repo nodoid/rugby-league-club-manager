@@ -516,8 +516,9 @@ public sealed class Career
 
     private void RefreshSponsorOffers()
     {
-        // Expired offers go, and so does any offer for a tier the club already has a partner in.
-        SponsorOffers.RemoveAll(o => o.ExpiresRound < Round || PlayerTeam.Sponsors.Any(s => s.Tier == o.Tier));
+        // Expired offers go, and so does any offer for a tier or brand the club already has a partner in.
+        SponsorOffers.RemoveAll(o => o.ExpiresRound < Round
+                                     || PlayerTeam.Sponsors.Any(s => s.Tier == o.Tier || s.Brand == o.Brand));
 
         var league = PlayerLeague;
         var rng = new Random(Seed ^ 0x5EA50 ^ (Round * 131) ^ SeasonYear);
@@ -542,7 +543,11 @@ public sealed class Career
         if (offer is null) return (false, "That offer has expired.");
 
         if (PlayerTeam.Sponsors.Any(s => s.Tier == offer.Tier))
-            return (false, $"You already have a {offer.TierLabel} partner.");
+        {
+            // The tier is already filled, so the offer can never be accepted: drop it for good.
+            SponsorOffers.RemoveAll(o => o.Id == offer.Id || o.Tier == offer.Tier);
+            return (false, $"You already have a {offer.TierLabel} partner, so that offer is off the table.");
+        }
 
         PlayerTeam.Sponsors.Add(offer.ToDeal());
 
@@ -949,10 +954,19 @@ public sealed class Career
 
     private void ApplyPromotionAndRelegation(SeasonSummary summary)
     {
-        var topLeague = Leagues.FirstOrDefault(l => l.HasPromotionRelegation && l.Tier == 1);
-        var lowerLeague = Leagues.FirstOrDefault(l => l.Tier == 2);
-        if (topLeague is null || lowerLeague is null) return;
+        // Each country runs its own two divisions, so Australia and England swap clubs separately.
+        foreach (var country in Leagues.Where(l => l.HasPromotionRelegation)
+                     .Select(l => l.Country).Distinct().ToList())
+        {
+            var top = Leagues.FirstOrDefault(l => l.Country == country && l.Tier == 1);
+            var lower = Leagues.FirstOrDefault(l => l.Country == country && l.Tier == 2);
+            if (top is null || lower is null) continue;
+            PromoteAndRelegate(top, lower, summary);
+        }
+    }
 
+    private void PromoteAndRelegate(League topLeague, League lowerLeague, SeasonSummary summary)
+    {
         var topTable = TableFor(topLeague);
         var lowerTable = TableFor(lowerLeague);
         if (topTable.Count < 2 || lowerTable.Count < 2) return;
@@ -1226,6 +1240,7 @@ public sealed class Career
         }
 
         AddClubs(nrl, TeamDatabase.NrlClubs);
+        AddClubs(career.LeagueById(TeamDatabase.NrlChampionshipId), TeamDatabase.NrlChampionshipClubs);
         AddClubs(superLeague, TeamDatabase.SuperLeagueClubs);
         AddClubs(championship, TeamDatabase.ChampionshipClubs);
 
@@ -1276,8 +1291,13 @@ public sealed class Career
         News.Clear();
 
         var rng = new Random(Seed ^ teamId.GetHashCode() ^ SeasonYear);
-        for (var i = 0; i < 2; i++)
-            SponsorOffers.Add(SponsorshipEngine.CreateOffer(PlayerTeam, PlayerLeague, rng, Round));
+        // Only offer tiers the new club has no partner in, otherwise accepting could never work.
+        var openTiers = Enum.GetValues<SponsorTier>()
+            .Where(t => PlayerTeam.Sponsors.All(s => s.Tier != t))
+            .OrderBy(_ => rng.Next())
+            .Take(2);
+        foreach (var tier in openTiers)
+            SponsorOffers.Add(SponsorshipEngine.CreateOffer(PlayerTeam, PlayerLeague, rng, Round, tier));
 
         AddNews(NewsKind.General, $"Welcome to {PlayerTeam.Name}",
             $"{ManagerName} takes charge at {PlayerTeam.Name} in the {PlayerLeague.Name}. The board wants a competitive season.", true);

@@ -11,16 +11,23 @@ public class CareerTests
         Career.CreateNew(null, "Test Manager", seed, 2026);
 
     [Fact]
-    public void New_career_builds_three_leagues_and_full_squads()
+    public void New_career_builds_four_leagues_and_full_squads()
     {
         var career = NewCareer();
 
-        Assert.Equal(3, career.Leagues.Count);
-        Assert.Equal(41, career.Teams.Count);
-        Assert.Equal(17, career.Leagues[0].TeamIds.Count);
-        Assert.Equal(12, career.Leagues[1].TeamIds.Count);
-        Assert.Equal(12, career.Leagues[2].TeamIds.Count);
-        Assert.Equal(41, career.Cup.Entrants.Count);
+        Assert.Equal(4, career.Leagues.Count);
+        Assert.Equal(48, career.Teams.Count);
+        Assert.All(career.Leagues, league => Assert.Equal(12, league.TeamIds.Count));
+        Assert.Equal(48, career.Cup.Entrants.Count);
+
+        // Both countries run two divisions, so both link a tier-one league to a tier two.
+        foreach (var country in new[] { "Australia", "England" })
+        {
+            var top = career.Leagues.Single(l => l.Country == country && l.Tier == 1);
+            var second = career.Leagues.Single(l => l.Country == country && l.Tier == 2);
+            Assert.True(top.HasPromotionRelegation);
+            Assert.True(second.HasPromotionRelegation);
+        }
 
         Assert.All(career.Teams, team =>
         {
@@ -89,10 +96,37 @@ public class CareerTests
         Assert.All(career.LastSeason!.Leagues, l => Assert.False(string.IsNullOrWhiteSpace(l.Champion)));
         Assert.True(career.Cup.IsComplete);
 
-        // Promotion and relegation keep the top flight at twelve clubs.
-        Assert.Equal(12, career.Leagues[1].TeamIds.Count);
-        Assert.Equal(12, career.Leagues[2].TeamIds.Count);
-        Assert.All(career.Leagues[1].TeamIds, id => Assert.Equal(career.Leagues[1].Id, career.TeamById(id).LeagueId));
+        // Promotion and relegation keep every division at twelve clubs.
+        Assert.All(career.Leagues, league => Assert.Equal(12, league.TeamIds.Count));
+        Assert.All(career.Leagues, league =>
+            Assert.All(league.TeamIds, id => Assert.Equal(league.Id, career.TeamById(id).LeagueId)));
+    }
+
+    [Fact]
+    public void Australian_clubs_promote_and_relegate_between_the_nrl_and_its_second_tier()
+    {
+        var career = NewCareer(909);
+        var top = career.LeagueById(TeamDatabase.NrlId);
+        var second = career.LeagueById(TeamDatabase.NrlChampionshipId);
+        var topBefore = top.TeamIds.ToHashSet();
+        var secondBefore = second.TeamIds.ToHashSet();
+
+        var guard = 0;
+        while (career.Phase != CompetitionPhase.OffSeason && guard++ < 90)
+        {
+            if (career.Phase == CompetitionPhase.Regular) career.PlayLeagueRound(null);
+            else career.PlayFinalsRound(null);
+            career.EnsureCupProgress();
+        }
+
+        Assert.Equal(CompetitionPhase.OffSeason, career.Phase);
+        Assert.Equal(topBefore.Count, top.TeamIds.Count);
+        Assert.Equal(secondBefore.Count, second.TeamIds.Count);
+        Assert.False(topBefore.SetEquals(top.TeamIds), "a relegated club should have left the NRL");
+        Assert.False(secondBefore.SetEquals(second.TeamIds),
+            "the NRL Championship winner should have gone up");
+        Assert.All(top.TeamIds, id => Assert.Equal(top.Id, career.TeamById(id).LeagueId));
+        Assert.All(second.TeamIds, id => Assert.Equal(second.Id, career.TeamById(id).LeagueId));
     }
 
     [Fact]
@@ -187,6 +221,31 @@ public class CareerTests
         Assert.True(success);
         Assert.Equal(dealsBefore + 1, career.PlayerTeam.Sponsors.Count);
         Assert.DoesNotContain(career.SponsorOffers, o => o.Id == offer.Id);
+    }
+
+    [Fact]
+    public void Opening_sponsor_offers_never_clash_with_existing_partners()
+    {
+        var career = NewCareer(5150);
+
+        Assert.NotEmpty(career.SponsorOffers);
+        Assert.All(career.SponsorOffers, offer =>
+            Assert.DoesNotContain(career.PlayerTeam.Sponsors, deal => deal.Tier == offer.Tier));
+    }
+
+    [Fact]
+    public void An_offer_for_a_filled_tier_cannot_be_accepted_and_leaves_the_list()
+    {
+        var career = NewCareer(6161);
+        var main = career.PlayerTeam.Sponsors.First();
+        var stale = new SponsorOffer { Brand = "Test Brand", Tier = main.Tier, AnnualValue = 50_000 };
+        career.SponsorOffers.Add(stale);
+
+        var (success, message) = career.AcceptSponsorOffer(stale.Id);
+
+        Assert.False(success);
+        Assert.Contains("already have", message);
+        Assert.DoesNotContain(career.SponsorOffers, o => o.Id == stale.Id);
     }
 
     [Fact]
