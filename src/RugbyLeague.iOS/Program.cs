@@ -25,14 +25,24 @@ internal sealed class AppDelegate : UIApplicationDelegate
         var game = new RugbyGame();
         Game = game;
 
-        // MonoGame builds its UIWindow in the platform constructor, so it exists before Run().
+        // MonoGame builds its UIWindow in the platform constructor, so it exists before Run(). On
+        // iPadOS 26+ apps open in a resizable window, so the window has to match the scene rather
+        // than the full screen or the canvas is clipped.
         if (game.Services.GetService(typeof(UIWindow)) is UIWindow window)
+        {
             window.WindowScene = scene;
+            window.Frame = scene.CoordinateSpace.Bounds;
+        }
 
         game.Run();
 
         var created = game.Services.GetService(typeof(UIWindow)) as UIWindow;
-        created?.MakeKeyAndVisible();
+        if (created is not null)
+        {
+            created.Frame = scene.CoordinateSpace.Bounds;
+            created.MakeKeyAndVisible();
+        }
+
 
         // MonoGame's touch panel does not receive the window's touches on iOS 26+, so a transparent
         // view above the game view forwards them into the shared input state instead.

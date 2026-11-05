@@ -46,6 +46,20 @@ public class GoalKickingTests
     }
 
     [Fact]
+    public void A_headwind_lengthens_the_kick_and_a_tailwind_shortens_it()
+    {
+        var power = GoalKicking.RequiredPower(30);
+        var still = GoalKicking.Evaluate(new GoalKicking.Attempt(30, power, 0, 80, 80, 0));
+        var intoWind = GoalKicking.Evaluate(new GoalKicking.Attempt(30, power, 0, 80, 80, 0, -40));
+        var downwind = GoalKicking.Evaluate(new GoalKicking.Attempt(30, power, 0, 80, 80, 0, 40));
+
+        Assert.True(GoalKicking.EffectiveDistance(30, -40) > 30);
+        Assert.True(GoalKicking.EffectiveDistance(30, 40) < 30);
+        Assert.True(intoWind.PowerError < still.PowerError);
+        Assert.True(downwind.PowerError > still.PowerError);
+    }
+
+    [Fact]
     public void Kicking_training_improves_the_conversion_rate()
     {
         var career = Career.CreateNew(Guid.NewGuid(), "Test Manager", 5150);

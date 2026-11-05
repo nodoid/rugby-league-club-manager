@@ -118,16 +118,22 @@ textured ground plane. The camera follows the ball. You control:
 
 On desktop, arrow keys/WASD move, **Space** passes, **K** kicks, **Shift** sprints and **E** tackles.
 On a phone the joystick and buttons are drawn in the corners and support multi-touch, so you can
-move, sprint and pass at the same time.
+move, sprint and pass at the same time. The stick is relative to your own team, so it steers
+defending players just as well as attackers, and the marker at each player's feet shows which way he
+is facing. **PAUSE** in the top-left stops the match and offers **Resume** or **Leave match**.
 
 ### Goal kicking
 
 Every try is followed by a conversion, and both teams take theirs:
 
-- **Your kick** — drag left or right to place the ball, which walks it back from the posts or wider
-  for a better angle. Tap **KICK**, then strike as the power needle crosses the green band; the band
-  is where the distance needs the ball to be struck. The wind shown in the top-right corner pushes
-  the ball off line during flight.
+- **Your kick** — the ball is set 10 m out from the goal line, in line with where the try was
+  scored, and never moves. Law 8 of the International Laws of the Game says a kick at goal after a
+  try "may be taken from any point on an imaginary line drawn parallel to the touch line in the
+  field of play and through the point where the try was awarded", so the spot is fixed and your
+  only control is the strike. Tap **KICK**, then stop the bar as the needle crosses the green band;
+  the band is the power the distance needs, and the same strike decides the line, so a mistimed
+  kick drifts wide or falls short. The wind in the top-right corner blows the ball off line, and
+  when it is behind you or in your face it lengthens or shortens the kick.
 - **The opposition kick** — the AI kicker lines up, waits for the needle to reach the band and
   strikes; the ball is animated between the posts and you see whether it is good or wide.
 - The maths lives in `GoalKicking` in Core, so the conversion and the kicking drill obey the same

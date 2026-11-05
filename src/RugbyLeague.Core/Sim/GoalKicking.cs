@@ -15,6 +15,14 @@ public static class GoalKicking
     public static float RequiredPower(float distance) =>
         Math.Clamp(0.34f + distance / 68f, 0.34f, 0.99f);
 
+    /// <summary>
+    /// The distance the ball actually has to be struck for, once the wind helping or holding the kick
+    /// is taken into account. A tailwind carries the ball further, a headwind holds it up.
+    /// </summary>
+    /// <param name="WindAlong">Wind along the line of the kick in km/h; positive is behind the kicker.</param>
+    public static float EffectiveDistance(float distance, float windAlong) =>
+        Math.Clamp(distance - windAlong / 3.6f * 1.2f, distance * 0.55f, distance * 1.45f);
+
     /// <summary>Metres the ball is pushed off line by a cross wind over the given distance.</summary>
     public static float LateralDrift(float windAcross, float distance) =>
         windAcross * 0.16f * (distance / 30f);
@@ -25,8 +33,9 @@ public static class GoalKicking
     /// <param name="GoalKicking">The kicker's goal kicking attribute, 1..99.</param>
     /// <param name="Kicking">The kicker's general kicking attribute, 1..99.</param>
     /// <param name="Noise">Random draw in -1..1.</param>
+    /// <param name="WindAlong">Wind along the line of the kick in km/h; positive is behind the kicker.</param>
     public readonly record struct Attempt(float Distance, float Power, float WindAcross, int GoalKicking, int Kicking,
-        float Noise);
+        float Noise, float WindAlong = 0f);
 
     /// <param name="Scored">True when the ball passes between the posts and over the bar.</param>
     /// <param name="LateralMiss">Metres past the posts; negative is left of the target.</param>
@@ -36,7 +45,7 @@ public static class GoalKicking
 
     public static Outcome Evaluate(Attempt attempt)
     {
-        var required = RequiredPower(attempt.Distance);
+        var required = RequiredPower(EffectiveDistance(attempt.Distance, attempt.WindAlong));
         var powerError = attempt.Power - required;
 
         var accuracy = Math.Clamp((attempt.GoalKicking + attempt.Kicking) / 198f, 0f, 1f);

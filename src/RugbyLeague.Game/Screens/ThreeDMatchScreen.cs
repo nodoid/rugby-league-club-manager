@@ -45,7 +45,13 @@ public sealed partial class ThreeDMatchScreen : Screen
 
         if (Math.Abs(_layoutWidth - View.Width) > 1) LayoutControls();
 
-        Simulate((float)gameTime.ElapsedGameTime.TotalSeconds);
+        // A finger on the field can always stop the match, which matters on a phone where there is
+        // no keyboard to fall back on.
+        if (!_finished && (Input.AnyPointerPressedIn(_pauseButton)
+                           || Input.IsNewKeyPress(Microsoft.Xna.Framework.Input.Keys.P)))
+            _paused = !_paused;
+
+        if (!_paused) Simulate((float)gameTime.ElapsedGameTime.TotalSeconds);
 
         if (_finished && !_submitted && (Input.PointerPressed || Input.IsNewKeyPress(Microsoft.Xna.Framework.Input.Keys.Enter)))
             Submit();
@@ -246,6 +252,18 @@ public sealed partial class ThreeDMatchScreen : Screen
                 primary, 8);
             mesh.AddSphere(new Vector3(actor.Position.X, 1.85f, actor.Position.Z), 0.24f,
                 new Color(222, 182, 150), 8, 5);
+
+            // A marker at the player's feet shows which way he is facing, so a change of direction
+            // is visible straight away.
+            var heading = actor.Heading;
+            heading.Y = 0;
+            if (heading.LengthSquared() < 0.01f) heading = new Vector3(1, 0, 0);
+            else heading.Normalize();
+
+            mesh.AddDisc(
+                new Vector3(actor.Position.X + heading.X * 0.75f, 0.09f, actor.Position.Z + heading.Z * 0.75f),
+                actor.IsControlled ? 0.24f : 0.15f,
+                actor.IsControlled ? Theme.Gold : new Color(230, 240, 236) * 0.75f);
         }
 
         // A rugby ball is an oval: about 28 cm long and 18 cm wide, so it is drawn as a prolate
@@ -279,7 +297,8 @@ public sealed partial class ThreeDMatchScreen : Screen
             TextSize.Subhead, TextAlign.Left);
         Ui.TextIn("-", new Rectangle(board.Center.X - 74, board.Y + 12, 40, 30), Theme.TextDim, TextSize.Body,
             TextAlign.Center);
-        Ui.TextIn($"{Math.Min(80, _clock):0}'  ·  {(_goldenPoint ? "ET" : $"Half {_half}")}",
+        var period = _goldenPoint ? "ET" : _half == 1 ? "1st half" : "2nd half";
+        Ui.TextIn($"{Math.Min(80, _clock):0}'  ·  {period}",
             new Rectangle(board.Center.X - 80, board.Y + 44, 160, 20), Theme.TextMuted, TextSize.Small,
             TextAlign.Center);
 
@@ -298,6 +317,7 @@ public sealed partial class ThreeDMatchScreen : Screen
 
         DrawWind();
         DrawDiscipline();
+        DrawPauseButton();
 
         if (_phase == MatchPhase.Conversion)
         {
@@ -333,12 +353,45 @@ public sealed partial class ThreeDMatchScreen : Screen
         }
 
         Ui.TextIn(_phase == MatchPhase.Conversion
-                ? "Goal kicking  ·  power and wind decide it"
-                : "Drag the stick to run  ·  PASS  ·  KICK  ·  TACKLE  ·  RUN to sprint",
+                ? "Stop the bar in the green band  ·  power sets the length and the line"
+                : "Drag the stick to run anywhere  ·  PASS  ·  KICK  ·  TACKLE  ·  RUN to sprint",
             new Rectangle((int)(width / 2 - 280), (int)height - 34, 560, 24), Theme.TextDim * 0.9f,
             TextSize.Small, TextAlign.Center);
 
         if (_finished) DrawFullTime();
+        else if (_paused) DrawPaused();
+    }
+
+    private void DrawPauseButton()
+    {
+        if (_finished) return;
+        DrawControlButton(_pauseButton, _paused ? "PLAY" : "PAUSE", new Color(70, 96, 108),
+            Input.AnyPointerIn(_pauseButton));
+    }
+
+    private void DrawPaused()
+    {
+        Ui.Fill(View.Bounds, new Color(4, 10, 14, 205));
+
+        var panel = new Rectangle((int)(View.Width / 2 - 240), (int)(View.Height / 2 - 120), 480, 240);
+        Ui.Card(panel, new Color(16, 32, 42), Theme.Accent);
+
+        Ui.TextIn("PAUSED", new Rectangle(panel.X, panel.Y + 22, panel.Width, 32), Theme.Gold, TextSize.Subhead,
+            TextAlign.Center);
+        Ui.TextIn($"{_setup.Home.Nickname} {_homeScore} - {_awayScore} {_setup.Away.Nickname}  ·  {Math.Min(80, _clock):0}'",
+            new Rectangle(panel.X + 16, panel.Y + 64, panel.Width - 32, 24), Theme.TextMuted, TextSize.Small,
+            TextAlign.Center);
+
+        if (Ui.Button(new Rectangle(panel.X + 60, panel.Y + 104, panel.Width - 120, 52), "Resume",
+                ButtonStyle.Primary))
+            _paused = false;
+
+        if (Ui.Button(new Rectangle(panel.X + 60, panel.Y + 168, panel.Width - 120, 46), "Leave match",
+                ButtonStyle.Ghost))
+        {
+            Game.SaveCareer();
+            Game.Screens.ReplaceAll(new CareerHubScreen(Game));
+        }
     }
 
     /// <summary>Wind dial in the top-right corner; it drives the conversions and the kicking game.</summary>
@@ -404,7 +457,7 @@ public sealed partial class ThreeDMatchScreen : Screen
         }
     }
 
-    /// <summary>The conversion HUD: placement instructions, power meter and the strike button.</summary>
+    /// <summary>The conversion HUD: the fixed kick spot, the power and line bar, and the strike button.</summary>
     private void DrawConversion(float width, float height)
     {
         // Kept to the left so the ball, the kicker and the posts stay in view.
@@ -427,13 +480,12 @@ public sealed partial class ThreeDMatchScreen : Screen
             Theme.Gold * 0.9f);
         Ui.Border(meter, Theme.PanelBorder, 2);
 
-        Ui.TextIn("POWER", new Rectangle(meter.X, meter.Y - 20, 100, 18), Theme.TextDim, TextSize.Small);
+        Ui.TextIn("POWER  /  LINE", new Rectangle(meter.X, meter.Y - 20, 140, 18), Theme.TextDim, TextSize.Small);
         Ui.TextIn($"{_power * 100f:0}%", new Rectangle(meter.Right - 100, meter.Y - 20, 100, 18), Theme.TextMuted,
             TextSize.Small, TextAlign.Right);
 
         var hint = _conversionStage switch
         {
-            ConversionStage.Place => "Drag left or right to place the ball, then tap KICK",
             ConversionStage.Power => "Tap KICK as the needle crosses the green band",
             ConversionStage.Flight => "The kick is away…",
             _ => _conversionResult == "GOAL" ? "It's over!" : "Wide of the posts"
@@ -442,8 +494,7 @@ public sealed partial class ThreeDMatchScreen : Screen
         Ui.TextIn(hint, new Rectangle(panel.X + 12, panel.Y + 122, panel.Width - 24, 24), Theme.Text, TextSize.Small,
             TextAlign.Center);
 
-        var action = _conversionStage == ConversionStage.Power ? "STRIKE" : "KICK";
-        DrawControlButton(_kickButton, action, Theme.Gold, Input.AnyPointerIn(_kickButton));
+        DrawControlButton(_kickButton, "KICK", Theme.Gold, Input.AnyPointerIn(_kickButton));
     }
 
     private void DrawControlButton(Rectangle rectangle, string label, Color colour, bool pressed)

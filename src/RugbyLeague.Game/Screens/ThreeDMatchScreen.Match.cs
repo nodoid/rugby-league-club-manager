@@ -13,6 +13,7 @@ public sealed partial class ThreeDMatchScreen
         public required bool IsHome { get; init; }
         public required int Shirt { get; init; }
         public Vector3 Position;
+        public Vector3 Heading = new(1, 0, 0);
         public float TackleCooldown;
         public bool IsControlled;
     }
@@ -82,7 +83,6 @@ public sealed partial class ThreeDMatchScreen
 
     private enum ConversionStage
     {
-        Place,
         Power,
         Flight,
         Result
@@ -94,7 +94,6 @@ public sealed partial class ThreeDMatchScreen
     private bool _conversionIsPlayer;
     private Actor? _kicker;
     private float _conversionZ = 34f;
-    private float _conversionBack = 12f;
     private float _power;
     private float _powerDirection = 1f;
     private float _conversionTimer;
@@ -121,6 +120,8 @@ public sealed partial class ThreeDMatchScreen
     private Rectangle _kickButton;
     private Rectangle _tackleButton;
     private Rectangle _sprintButton;
+    private Rectangle _pauseButton;
+    private bool _paused;
     private int _stickId = -1;
     private Vector2 _stickCentre;
     private Vector2 _stickValue;
@@ -352,6 +353,7 @@ public sealed partial class ThreeDMatchScreen
         _kickButton = new Rectangle((int)width - 200, (int)height - 250, 104, 104);
         _tackleButton = new Rectangle((int)width - 200, (int)height - 136, 104, 104);
         _sprintButton = new Rectangle((int)width - 424, (int)height - 150, 88, 88);
+        _pauseButton = new Rectangle(24, 20, 92, 44);
     }
 
     private void ShowMessage(string message, float seconds)
@@ -523,8 +525,10 @@ public sealed partial class ThreeDMatchScreen
 
         if (_controlled is not null && axis.LengthSquared() > 0.001f)
         {
-            var direction = AttackDirection(_homePossession);
+            // Controls follow the player's own team, so a defender is never steered backwards.
+            var direction = AttackDirection(_controlled.IsHome);
             var move = new Vector3(-axis.Y * direction, 0, axis.X * direction);
+            if (move.LengthSquared() > 0.0001f) _controlled.Heading = Vector3.Normalize(move);
             var speed = ActorSpeed(_controlled) * (1f + 0.22f * _sprintHeld);
             _controlled.Position += move * speed * dt;
             ClampToField(_controlled);
@@ -589,7 +593,7 @@ public sealed partial class ThreeDMatchScreen
 
                 // Chasers are quicker than a ball carrier, otherwise a single missed tackle turns
                 // every set into a walk-in try and the score runs away.
-                MoveTowards(actor, target, ActorSpeed(actor) * (chase ? 1.18f : 0.82f), dt);
+                MoveTowards(actor, target, ActorSpeed(actor) * (chase ? 1.32f : 0.82f), dt);
             }
         }
 
@@ -651,7 +655,8 @@ public sealed partial class ThreeDMatchScreen
         if (pressure < 3.4f && _rng.NextDouble() < dt * 2.2) Pass(actor);
         else if (_tackle >= 5 && _rng.NextDouble() < dt * 1.4) Kick(actor, false);
 
-        MoveTowards(actor, target, ActorSpeed(actor) * 0.96f, dt);
+        // The AI carrier used to outrun every chaser, which made the opposition unstoppable.
+        MoveTowards(actor, target, ActorSpeed(actor) * 0.84f, dt);
     }
 
     private void MoveTowards(Actor actor, Vector3 target, float speed, float dt)
@@ -661,6 +666,7 @@ public sealed partial class ThreeDMatchScreen
         if (delta.LengthSquared() < 0.04f) return;
 
         delta.Normalize();
+        actor.Heading = delta;
         actor.Position += delta * speed * dt;
         ClampToField(actor);
     }
@@ -682,7 +688,7 @@ public sealed partial class ThreeDMatchScreen
             if (defender.TackleCooldown > 0) continue;
 
             var distance = Vector3.Distance(defender.Position, _carrier.Position);
-            if (distance > 2.7f) continue;
+            if (distance > 3.2f) continue;
 
             defender.TackleCooldown = 0.9f;
             AttemptTackle(defender);
@@ -700,6 +706,9 @@ public sealed partial class ThreeDMatchScreen
         var chance = 0.5 + (tackling - strength) / 240.0 + (_tacklePressed && defender == _controlled ? 0.22 : 0)
                      - pace / 700.0;
         chance = Math.Clamp(chance, 0.18, 0.93);
+
+        // Chasing down a break should be a real contest, so the controlled tackler gets a nudge.
+        if (defender == _controlled && _tacklePressed) chance = Math.Clamp(chance + 0.1, 0.18, 0.95);
 
         var stat = defender.IsHome ? _homeStats : _awayStats;
         stat.Tackles++;
@@ -968,8 +977,23 @@ public sealed partial class ThreeDMatchScreen
 
     // ---------------------------------------------------------------- conversions
 
-    private float ConversionDistance =>
-        MathF.Sqrt(_conversionBack * _conversionBack + (_conversionZ - 34f) * (_conversionZ - 34f));
+    /// <summary>How far back from the goal line the kicker sets the ball, in line with the try.</summary>
+    private const float ConversionRetreat = 10f;
+
+    // Law: a kick at goal after a try may be taken from any point on a line parallel to the touch
+    // line, in the field of play, through the point where the try was awarded. The ball is set on
+    // that line and never moved by hand, so the distance changes only with how wide the try was.
+    private float ConversionDistance
+    {
+        get
+        {
+            var across = _conversionZ - 34f;
+            return MathF.Max(1f, MathF.Sqrt(ConversionRetreat * ConversionRetreat + across * across));
+        }
+    }
+
+    /// <summary>Wind along the line of this kick: positive is behind the kicker, negative in his face.</summary>
+    private float ConversionWindAlong => _setup.Weather.WindAlong * AttackDirection(_conversionHome);
 
     private float ConversionLine => TryLine(_conversionHome);
 
@@ -979,14 +1003,13 @@ public sealed partial class ThreeDMatchScreen
         _conversionHome = scorer.IsHome;
         _conversionIsPlayer = scorer.IsHome == _playerIsHome;
         _kicker = BestKicker(_conversionHome);
-        _conversionZ = Math.Clamp(scorer.Position.Z, 14f, 54f);
-        _conversionBack = 12f;
+        _conversionZ = Math.Clamp(scorer.Position.Z, 12f, 56f);
         _conversionTimer = 0f;
         _conversionFlight = 0f;
         _conversionResult = "";
         _power = 0f;
         _powerDirection = 1f;
-        _conversionStage = _conversionIsPlayer ? ConversionStage.Place : ConversionStage.Power;
+        _conversionStage = ConversionStage.Power;
 
         _carrier = null;
         _flight = false;
@@ -996,20 +1019,23 @@ public sealed partial class ThreeDMatchScreen
         PlaceConversionBall();
 
         ShowMessage(_conversionIsPlayer
-            ? "Conversion — drag to place the ball, then KICK"
+            ? "Conversion — tap KICK to strike"
             : $"{TeamName(_conversionHome)} line up the conversion", 2.6f);
     }
 
     private void PlaceConversionBall()
     {
         var direction = AttackDirection(_conversionHome);
-        _ball = new Vector3(ConversionLine - direction * _conversionBack, 0.4f, _conversionZ);
-        _conversionRequiredPower = GoalKicking.RequiredPower(ConversionDistance);
+
+        // In the field of play, in line with the try, and never moved by hand.
+        _ball = new Vector3(ConversionLine - direction * ConversionRetreat, 0.4f, _conversionZ);
+        _conversionRequiredPower = GoalKicking.RequiredPower(
+            GoalKicking.EffectiveDistance(ConversionDistance, ConversionWindAlong));
 
         if (_kicker is not null)
         {
-            // Stand the kicker beside the ball rather than over it, so the oval ball stays in view.
-            _kicker.Position = new Vector3(_ball.X - direction * 0.5f, 0, _conversionZ + 1.2f);
+            // Stand the kicker behind the ball rather than over it, so the oval ball stays in view.
+            _kicker.Position = new Vector3(_ball.X - direction * 1.2f, 0, _conversionZ + 1.2f);
             _kicker.IsControlled = false;
         }
     }
@@ -1020,9 +1046,6 @@ public sealed partial class ThreeDMatchScreen
 
         switch (_conversionStage)
         {
-            case ConversionStage.Place:
-                UpdatePlacement();
-                break;
             case ConversionStage.Power:
                 UpdatePowerMeter(dt);
                 break;
@@ -1032,30 +1055,6 @@ public sealed partial class ThreeDMatchScreen
             case ConversionStage.Result:
                 if (_conversionTimer >= 1.5f) EndConversion();
                 break;
-        }
-    }
-
-    private void UpdatePlacement()
-    {
-        var kickPressed = Input.AnyPointerPressedIn(_kickButton) ||
-                          Input.IsNewKeyPress(Microsoft.Xna.Framework.Input.Keys.Space) ||
-                          Input.IsNewKeyPress(Microsoft.Xna.Framework.Input.Keys.Enter);
-
-        if (Input.PointerDown && MathF.Abs(Input.PointerDelta.X) > 0.5f)
-        {
-            // Dragging across the pitch walks the ball back from, or nearer to, the posts.
-            var direction = AttackDirection(_conversionHome);
-            _conversionBack = Math.Clamp(_conversionBack - Input.PointerDelta.X * direction * 0.12f, 6f, 30f);
-            PlaceConversionBall();
-        }
-
-        if (kickPressed)
-        {
-            _conversionStage = ConversionStage.Power;
-            _conversionTimer = 0f;
-            _power = 0f;
-            _powerDirection = 1f;
-            ShowMessage("Tap KICK to strike", 1.6f);
         }
     }
 
@@ -1099,7 +1098,8 @@ public sealed partial class ThreeDMatchScreen
             _setup.Weather.WindAcross,
             goalKicking,
             kicking,
-            (float)(_rng.NextDouble() * 2 - 1)));
+            (float)(_rng.NextDouble() * 2 - 1),
+            ConversionWindAlong));
 
         _conversionScored = outcome.Scored;
         _conversionMiss = outcome.LateralMiss;
