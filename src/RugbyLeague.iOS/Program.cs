@@ -1,3 +1,4 @@
+using CoreGraphics;
 using Foundation;
 using RugbyLeague.Game;
 using UIKit;
@@ -30,8 +31,55 @@ internal sealed class AppDelegate : UIApplicationDelegate
 
         game.Run();
 
-        if (game.Services.GetService(typeof(UIWindow)) is UIWindow created)
-            created.MakeKeyAndVisible();
+        var created = game.Services.GetService(typeof(UIWindow)) as UIWindow;
+        created?.MakeKeyAndVisible();
+
+        // MonoGame's touch panel does not receive the window's touches on iOS 26+, so a transparent
+        // view above the game view forwards them into the shared input state instead.
+        if (game.Services.GetService(typeof(UIViewController)) is UIViewController controller)
+            controller.View.AddSubview(new TouchPumpView(controller.View.Bounds) { Game = game });
+    }
+}
+
+/// <summary>
+/// A transparent view above the game that turns UIKit touches into game input. Positions are
+/// reported in render pixels so they line up with the game's virtual canvas.
+/// </summary>
+[Register("TouchPumpView")]
+internal sealed class TouchPumpView : UIView
+{
+    public TouchPumpView(CGRect frame) : base(frame)
+    {
+        Opaque = false;
+        BackgroundColor = UIColor.Clear;
+        MultipleTouchEnabled = true;
+        AutoresizingMask = UIViewAutoresizing.FlexibleWidth | UIViewAutoresizing.FlexibleHeight;
+    }
+
+    public RugbyGame? Game { get; set; }
+
+    public override void TouchesBegan(NSSet touches, UIEvent? evt) => Report(touches, down: true);
+
+    public override void TouchesMoved(NSSet touches, UIEvent? evt) => Report(touches, down: true);
+
+    public override void TouchesEnded(NSSet touches, UIEvent? evt) => Report(touches, down: false);
+
+    public override void TouchesCancelled(NSSet touches, UIEvent? evt) => Report(touches, down: false);
+
+    private void Report(NSSet touches, bool down)
+    {
+        // This view shares the game view's coordinate space, which is in points on screen.
+        var host = Superview?.Bounds ?? Bounds;
+        var viewport = Game?.View;
+        var scaleX = viewport is not null && host.Width > 0 ? viewport.ScreenWidth / (float)host.Width : 1f;
+        var scaleY = viewport is not null && host.Height > 0 ? viewport.ScreenHeight / (float)host.Height : 1f;
+
+        foreach (UITouch touch in touches)
+        {
+            var location = touch.LocationInView(this);
+            var position = new Microsoft.Xna.Framework.Vector2((float)location.X * scaleX, (float)location.Y * scaleY);
+            Game?.Input?.InjectTouch(touch.Handle.GetHashCode(), position, down);
+        }
     }
 }
 

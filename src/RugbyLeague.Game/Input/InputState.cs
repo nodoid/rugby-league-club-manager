@@ -32,6 +32,20 @@ public sealed class InputState
         _viewport = viewport;
     }
 
+    private readonly List<(int Id, Vector2 Position, bool Down)> _pendingTouches = new();
+    private readonly Dictionary<int, Vector2> _heldTouches = new();
+    private bool _platformTouchSource;
+
+    /// <summary>
+    /// Platform heads that deliver touches themselves (iOS) push them here in screen pixels.
+    /// Once a touch arrives this way the touch panel and mouse are ignored.
+    /// </summary>
+    public void InjectTouch(int id, Vector2 screenPosition, bool down)
+    {
+        _pendingTouches.Add((id, screenPosition, down));
+        _platformTouchSource = true;
+    }
+
     public IReadOnlyList<Pointer> Pointers => _pointers;
 
     public Vector2 Pointer { get; private set; }
@@ -58,10 +72,30 @@ public sealed class InputState
         var wasDown = PointerDown;
 
         _pointers.Clear();
-        var touches = TouchPanel.GetState();
 
-        if (touches.Count > 0)
+        if (_platformTouchSource)
         {
+            var released = new List<(int Id, Vector2 Position)>();
+            foreach (var (id, position, down) in _pendingTouches)
+            {
+                if (down) _heldTouches[id] = position;
+                else if (_heldTouches.Remove(id)) released.Add((id, position));
+            }
+            _pendingTouches.Clear();
+
+            foreach (var (id, position) in released)
+                _pointers.Add(new Pointer(id, _viewport.ToVirtual(position), false, _previousDown.Contains(id)));
+
+            foreach (var (id, position) in _heldTouches)
+                _pointers.Add(new Pointer(id, _viewport.ToVirtual(position), true, _previousDown.Contains(id)));
+
+            // Keep the last position so the pointer does not jump when every finger lifts.
+            if (_pointers.Count == 0)
+                _pointers.Add(new Pointer(-2, Pointer, false, false));
+        }
+        else
+        {
+            var touches = TouchPanel.GetState();
             foreach (var touch in touches)
             {
                 var id = touch.Id;
@@ -70,12 +104,13 @@ public sealed class InputState
 
                 _pointers.Add(new Pointer(id, position, down, _previousDown.Contains(id)));
             }
-        }
-        else
-        {
-            var position = _viewport.ToVirtual(new Vector2(_mouse.X, _mouse.Y));
-            var down = _mouse.LeftButton == ButtonState.Pressed;
-            _pointers.Add(new Pointer(-1, position, down, _previousDown.Contains(-1)));
+
+            if (touches.Count == 0)
+            {
+                var position = _viewport.ToVirtual(new Vector2(_mouse.X, _mouse.Y));
+                var down = _mouse.LeftButton == ButtonState.Pressed;
+                _pointers.Add(new Pointer(-1, position, down, _previousDown.Contains(-1)));
+            }
         }
 
         var primary = _pointers[0];
