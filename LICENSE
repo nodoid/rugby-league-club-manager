@@ -1,0 +1,30 @@
+DILLIGAF PUBLIC LICENCE
+=======================
+
+DILLIGAF — "Do I Look Like I Give A Fuck"
+
+Copyright (c) 2026 Paul F. Johnson
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and
+associated documentation files (the "Software"), to deal in the Software without restriction,
+including without limitation the rights to use, copy, modify, merge, publish, distribute,
+sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+1. You may do whatever the fuck you like with it.
+2. You do not have to credit anyone, though it is nice if you do.
+3. THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING
+   BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+   NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+   CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+If it breaks, you get to keep both pieces.
+
+---
+
+Bundled third-party assets keep their own licences:
+
+- Open Sans (SIL Open Font License 1.1) — see `src/RugbyLeague.Game/Content/Fonts/OFL.txt`.
+- Every club, player, sponsor and competition name in the game is fictional and original to this
+  project.

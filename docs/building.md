@@ -65,27 +65,28 @@ The iOS head targets `net10.0-ios` with `SupportedOSPlatformVersion` 18.0 and bu
 
 ### Signing setup
 
-The project is preconfigured for the development identity used during development:
-
-| Setting | Value |
-| --- | --- |
-| Team ID | `3UH7BE38T3` |
-| Signing identity (`CodesignKey`) | `Apple Development: Created via API (ZTRSB8B479)` |
-| Provisioning profile (`CodesignProvision`) | `devel-rugby` (UUID `7ac7a672-2043-40d4-9977-8a15c7775155`) |
-
-Install the profile from Downloads before building:
+Nothing signing-related is committed: team, certificate and profile details are personal to whoever
+is building. Put them in an untracked `LocalSigning.props` in the repository root (the project
+imports it when it exists):
 
 ```bash
-mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
-cp ~/Downloads/devel-rugby.mobileprovision \
-   ~/Library/MobileDevice/Provisioning\ Profiles/7ac7a672-2043-40d4-9977-8a15c7775155.mobileprovision
+cp LocalSigning.props.example LocalSigning.props
 ```
 
-Confirm the identity is present with `security find-identity -v -p codesigning`.
+```xml
+<Project>
+  <PropertyGroup>
+    <CodesignKey>Apple Development: Your Name (XXXXXXXXXX)</CodesignKey>
+    <CodesignProvision>your-development-profile</CodesignProvision>
+  </PropertyGroup>
+</Project>
+```
 
-For a release/TestFlight build, edit `CodesignKey`, `CodesignProvision` and
-`CodesignEntitlements` in `src/RugbyLeague.iOS/RugbyLeague.iOS.csproj` to the distribution identity
-and the `rel-rugby` profile, then publish.
+`LocalSigning.props`, `*.mobileprovision`, `*.p12` and `*.keystore` are all in `.gitignore`.
+
+Install the profile under `~/Library/MobileDevice/Provisioning Profiles/` and confirm the identity
+is present with `security find-identity -v -p codesigning`. For a release or TestFlight build, point
+the same two properties at the distribution identity and profile.
 
 ### Device build
 
@@ -105,15 +106,17 @@ always refresh the bundle's plist.
 
 ### Deploy to a physically connected iPhone
 
-The development device is *Paul's iPhone* (iPhone 13), UDID `00008110-001E14363AF2401E`.
+Find the device UDID with `xcrun devicectl list devices`, then:
 
 ```bash
+DEVICE=<your-device-udid>
+
 xcrun devicectl device install app \
-  --device 00008110-001E14363AF2401E \
+  --device $DEVICE \
   src/RugbyLeague.iOS/bin/Release/net10.0-ios/ios-arm64/RugbyLeague.iOS.app
 
 xcrun devicectl device process launch \
-  --device 00008110-001E14363AF2401E \
+  --device $DEVICE \
   --console uk.co.allthejohnsons.rugbyleaguegame
 ```
 
@@ -121,15 +124,14 @@ Useful follow-ups:
 
 ```bash
 # Screenshot (PNG, native device resolution)
-xcrun devicectl device capture screenshot \
-  --device 00008110-001E14363AF2401E --destination /tmp/ios.png
+xcrun devicectl device capture screenshot --device $DEVICE --destination /tmp/ios.png
 
 # Confirm the process is alive
-xcrun devicectl device info processes --device 00008110-001E14363AF2401E | grep -i rugby
+xcrun devicectl device info processes --device $DEVICE | grep -i rugby
 
 # Pull crash reports
 mkdir -p /tmp/crash
-xcrun devicectl device copy from --device 00008110-001E14363AF2401E \
+xcrun devicectl device copy from --device $DEVICE \
   --domain-type systemCrashLogs --source . --destination /tmp/crash
 ```
 
@@ -157,11 +159,26 @@ If you replace MonoGame with a version that handles scenes itself, remove both p
 | Symptom | Fix |
 | --- | --- |
 | `error MT0091` / unsupported Xcode version | add `-p:ValidateXcodeVersion=false` |
-| `No code signing identity found` | install the certificate and profile in Downloads, re-run `security find-identity` |
+| `No code signing identity found` | fill in `LocalSigning.props`, install the profile, re-run `security find-identity` |
 | App installs but immediately exits | pull the crash log; check `Info.plist`/scene delegate first |
 | Launch on the wrong device | always pass `--device <UDID>`; never use `simctl` |
 | Incremental build ignores plist changes | `dotnet build … -t:Rebuild` |
 | Android `XA1036: <uses-sdk> in the manifest` | remove `<uses-sdk>`; set `SupportedOSPlatformVersion` instead |
+
+## Store captures
+
+Screenshots and the App Store preview are recorded on simulators that nobody is tapping, so the
+game can drive itself: set `RL_DEMO=1` (or pass `--demo`) and it runs a scripted tour of the menu,
+dashboard, squad, competitions, matchday and a 3D match, then exits after about 26 seconds.
+
+```bash
+SIM=<$SIMULATOR_UDID>
+SIMCTL_CHILD_RL_DEMO=1 xcrun simctl launch $SIM uk.co.allthejohnsons.rugbyleaguegame
+xcrun simctl io $SIM recordVideo --codec=h264 preview.mp4   # stop with Ctrl-C
+```
+
+The tour lives in `src/RugbyLeague.Game/Demo/DemoTour.cs`; adjust the timings there if the screens
+change. Store artwork and copy are in [`store/`](../store).
 
 ## Assets
 

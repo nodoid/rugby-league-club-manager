@@ -26,10 +26,16 @@ public sealed class VirtualViewport
         ScreenWidth = screenWidth;
         ScreenHeight = screenHeight;
 
-        Scale = screenHeight / DesignHeight;
+        // Fit the design canvas inside the window. Wide screens grow the width, but a screen that is
+        // too square to hold the 960x720 minimum (iPad windows, for example) shrinks the scale and
+        // letterboxes instead of drawing the right-hand side off the edge.
+        Scale = Math.Min(screenHeight / DesignHeight, screenWidth / MinimumWidth);
         Width = Math.Max(MinimumWidth, screenWidth / Scale);
         Height = DesignHeight;
-        Transform = Matrix.CreateScale(Scale, Scale, 1f);
+
+        var offsetX = (screenWidth - Width * Scale) / 2f;
+        var offsetY = (screenHeight - Height * Scale) / 2f;
+        Transform = Matrix.CreateScale(Scale, Scale, 1f) * Matrix.CreateTranslation(offsetX, offsetY, 0);
     }
 
     public Vector2 ToVirtual(Vector2 screenPosition) => screenPosition / Scale;

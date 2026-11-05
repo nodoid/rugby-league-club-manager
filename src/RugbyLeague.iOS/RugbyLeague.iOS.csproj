@@ -8,8 +8,6 @@
     <ApplicationTitle>Rugby League Club Manager</ApplicationTitle>
     <ApplicationVersion>1</ApplicationVersion>
     <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
-    <CodesignKey>Apple Development: Created via API (ZTRSB8B479)</CodesignKey>
-    <CodesignProvision>devel-rugby</CodesignProvision>
     <CodesignEntitlements>Entitlements.plist</CodesignEntitlements>
     <MtouchLink>SdkOnly</MtouchLink>
     <ImplicitUsings>enable</ImplicitUsings>
@@ -28,5 +26,12 @@
   <ItemGroup>
     <MonoGameContentReference Include="..\RugbyLeague.Game\Content\Content.mgcb" />
   </ItemGroup>
+
+  <!--
+    Signing identities are personal to whoever is building, so they are not committed. Copy
+    LocalSigning.props.example to LocalSigning.props in the repository root and fill in your own
+    Certificate (CodesignKey) and provisioning profile (CodesignProvision).
+  -->
+  <Import Project="..\..\LocalSigning.props" Condition="Exists('..\..\LocalSigning.props')" />
 
 </Project>

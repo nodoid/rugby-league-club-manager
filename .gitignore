@@ -20,6 +20,11 @@ Content/obj/
 *.keystore
 *.p12
 *.mobileprovision
+LocalSigning.props
+
+# Built releases (published as GitHub release assets instead)
+Releases/**
+!Releases/README.md
 
 # Test and coverage output
 TestResults/

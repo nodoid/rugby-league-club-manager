@@ -1,0 +1,11 @@
+<Project>
+  <!--
+    Copy this file to LocalSigning.props in the repository root and fill in your own Apple
+    signing identity. LocalSigning.props is ignored by git, so personal team, certificate and
+    provisioning-profile details never end up in the repository.
+  -->
+  <PropertyGroup>
+    <CodesignKey>Apple Development: Your Name (XXXXXXXXXX)</CodesignKey>
+    <CodesignProvision>your-development-profile</CodesignProvision>
+  </PropertyGroup>
+</Project>

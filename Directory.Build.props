@@ -1,0 +1,12 @@
+<Project>
+
+  <PropertyGroup>
+    <Authors>Paul F. Johnson</Authors>
+    <Company>Paul F. Johnson</Company>
+    <Product>Rugby League Club Manager</Product>
+    <Copyright>Copyright (c) 2026 Paul F. Johnson</Copyright>
+    <Version>1.0.0</Version>
+    <PackageLicenseExpression>LicenseRef-DILLIGAF</PackageLicenseExpression>
+  </PropertyGroup>
+
+</Project>

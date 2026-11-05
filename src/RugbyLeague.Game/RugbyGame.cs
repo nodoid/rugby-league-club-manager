@@ -2,6 +2,7 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using RugbyLeague.Core.Careers;
 using RugbyLeague.Core.Persistence;
+using RugbyLeague.Game.Demo;
 using RugbyLeague.Game.Graphics;
 using RugbyLeague.Game.Input;
 using RugbyLeague.Game.Screens;
@@ -49,6 +50,13 @@ public sealed class RugbyGame : Microsoft.Xna.Framework.Game
 
     public Career? Career { get; set; }
     public string Notice { get; private set; } = string.Empty;
+
+    /// <summary>Runs the scripted store-capture tour when the build is launched with RL_DEMO/--demo.</summary>
+    public DemoTour? Demo { get; private set; }
+
+    public static bool DemoTourRequested =>
+        Environment.GetEnvironmentVariable("RL_DEMO") is "1" or "true" ||
+        Environment.GetCommandLineArgs().Any(argument => argument == "--demo");
 
     public bool IsDesktop =>
         OperatingSystem.IsMacOS() || OperatingSystem.IsWindows() || OperatingSystem.IsLinux();
@@ -99,6 +107,8 @@ public sealed class RugbyGame : Microsoft.Xna.Framework.Game
         Input = new InputState(View);
         Ui = new UiContext(Theme, _spriteBatch, Input, View);
 
+        if (DemoTourRequested) Demo = new DemoTour(this);
+
         Screens.Push(new SplashScreen(this));
     }
 
@@ -108,6 +118,8 @@ public sealed class RugbyGame : Microsoft.Xna.Framework.Game
 
         // Money is shown in the player's own currency, so it changes with promotion and relegation.
         Graphics.Theme.CurrencySymbol = Career?.CurrencySymbol ?? "$";
+
+        Demo?.Update(gameTime);
 
         Input.Update(gameTime);
         Ui.Update();

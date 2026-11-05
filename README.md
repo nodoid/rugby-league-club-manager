@@ -84,6 +84,7 @@ Device builds, signing and deployment are covered in [docs/building.md](docs/bui
 
 ## Documentation
 
+- [How to play](docs/instructions.md) — player instructions: starting a career, the weekly loop, matchday choices and 3D controls.
 - [Architecture](docs/architecture.md) — projects, game loop, simulation pipeline, save format.
 - [Gameplay](docs/gameplay.md) — the weekly loop, competitions, tactics, match modes, rules.
 - [Building and signing](docs/building.md) — Android APK, iOS device builds, provisioning, deployment.
@@ -96,7 +97,19 @@ and regions with invented nicknames (for example *Brisbane Stallions*, *Wigan Le
 competitions feel familiar without copying any real club's identity, badge, colours or sponsor. See
 [the notice in the gameplay docs](docs/gameplay.md#fictional-clubs-and-players).
 
+## Author
+
+Written by **Paul F. Johnson**. Package and bundle identifier:
+`uk.co.allthejohnsons.rugbyleaguegame`.
+
 ## Licence
 
-Source code is provided for personal use. The bundled Open Sans font is licensed under the SIL Open
-Font License; the licence text ships in `src/RugbyLeague.Game/Content/Fonts/OFL.txt`.
+Released under the **DILLIGAF** licence (*Do I Look Like I Give A Fuck*) — see [LICENSE](LICENSE).
+Do what you like with it; it comes with no warranty of any kind. The bundled Open Sans font is
+licensed under the SIL Open Font License; its licence text ships in
+`src/RugbyLeague.Game/Content/Fonts/OFL.txt`.
+
+## Releases
+
+Built packages for Android, iOS and desktop live in [`Releases/`](Releases), with notes in
+[Releases/README.md](Releases/README.md). The same artefacts are attached to the GitHub release.
