@@ -37,6 +37,3 @@ rm -rf /tmp/ipa && mkdir -p /tmp/ipa/Payload
 cp -R src/RugbyLeague.iOS/bin/Release/net10.0-ios/ios-arm64/RugbyLeague.iOS.app /tmp/ipa/Payload/
 (cd /tmp/ipa && zip -qry "$OLDPWD/Releases/iOS/RugbyLeagueClubManager-1.0.ipa" Payload)
 ```
-
-The IPA was built with `-p:CodesignKey="Apple Distribution: Paul Johnson (3UH7BE38T3)"`
-`-p:CodesignProvision="rel-rugby"`; override both for your own team.
